@@ -178,7 +178,7 @@ class Converter(object):
         if not isinstance(options, dict):
             raise ConverterError('Invalid options')
 
-        if not os.path.exists(infile):
+        if not os.path.exists(infile) and not self.ffmpeg.is_url(infile):
             raise ConverterError("Source file doesn't exist: " + infile)
 
         info = self.ffmpeg.probe(infile)

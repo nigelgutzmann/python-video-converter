@@ -4,6 +4,7 @@ import os.path
 import os
 import re
 import signal
+from urllib3.util import parse_url
 from subprocess import Popen, PIPE
 import logging
 import locale
@@ -352,6 +353,30 @@ class FFMpeg(object):
         logger.debug('Spawning ffmpeg with command: ' + ' '.join(cmds))
         return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
                      close_fds=True)
+    
+    def is_url(self, url):
+        #: Accept objects that have string representations.
+        try:
+            url = unicode(url)
+        except NameError:
+            # We're on Python 3.
+            url = str(url)
+        except UnicodeDecodeError:
+            pass
+
+        # Support for unicode domain names and paths.
+        scheme, auth, host, port, path, query, fragment = parse_url(url)
+
+        if not scheme or not host:
+            return False
+
+        # Only want to apply IDNA to the hostname
+        try:
+            host = host.encode('idna').decode('utf-8')
+        except UnicodeError:
+            return False
+
+        return True
 
     def probe(self, fname, posters_as_video=True):
         """
@@ -378,7 +403,7 @@ class FFMpeg(object):
             A video stream, defaults to True
         """
 
-        if not os.path.exists(fname):
+        if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
         info = MediaInfo(posters_as_video)
@@ -415,7 +440,7 @@ class FFMpeg(object):
         ...    pass # can be used to inform the user about conversion progress
 
         """
-        if not os.path.exists(infile):
+        if not os.path.exists(infile) and not self.is_url(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
 
         cmds = [self.ffmpeg_path, '-i', infile]
@@ -520,7 +545,7 @@ class FFMpeg(object):
         >>> FFMpeg().thumbnails('test1.ogg', [(5, '/tmp/shot.png', '320x240'),
         >>>                                   (10, '/tmp/shot2.png', None, 5)])
         """
-        if not os.path.exists(fname):
+        if not os.path.exists(fname) and not self.is_url(fname):
             raise IOError('No such file: ' + fname)
 
         cmds = [self.ffmpeg_path, '-i', fname, '-y', '-an']
