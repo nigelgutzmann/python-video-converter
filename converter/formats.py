@@ -92,7 +92,32 @@ class Mp3Format(BaseFormat):
     ffmpeg_format_name = 'mp3'
 
 
+class HLSFormat(BaseFormat):
+    """
+    ts container, segments
+    """
+    format_name = 'hls'
+    ffmpeg_format_name = 'segment'
+    def parse_options(self, opt):
+        if 'format' not in opt or opt.get('format') != self.format_name:
+            raise ValueError('invalid Format format')
+
+        optlist = []
+        optlist.extend(['-f', self.ffmpeg_format_name])
+        if 'flags' in opt:
+            optlist.extend(['-flags', str(opt.get('flags'))])
+        if 'segment_list' in opt:
+            optlist.extend(['-segment_list', str(opt.get('segment_list'))])
+        if 'segment_time' in opt:
+            optlist.extend(['-segment_time', str(opt.get('segment_time'))])
+        if 'segment_format' in opt:
+            optlist.extend(['-segment_format', str(opt.get('segment_format'))])
+        if 'segment_list_type' in opt:
+            optlist.extend(['-segment_list_type', str(opt.get('segment_list_type'))])
+
+        return optlist
+
 format_list = [
     OggFormat, AviFormat, MkvFormat, WebmFormat, FlvFormat,
-    MovFormat, Mp4Format, MpegFormat, Mp3Format
+    MovFormat, Mp4Format, MpegFormat, Mp3Format, HLSFormat
 ]
