@@ -308,6 +308,14 @@ class VideoCodec(BaseCodec):
         if filters:
             optlist.extend(['-vf', filters])
 
+        if 'filters' in safe:
+            if optlist.count('-vf'):
+                current_vf = optlist[optlist.index('-vf') + 1] 
+                new_vf = "{},{}".format(current_vf, safe['filters']) # append filters to current
+                optlist[optlist.index('-vf') + 1] = new_vf
+            else:
+                optlist.extend(['-vf', safe['filters']])
+
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
 
