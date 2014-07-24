@@ -151,7 +151,8 @@ class VideoCodec(BaseCodec):
             * crop - crop extra w/h
             * pad - pad with black bars
       * src_width (int) - source width
-      * src_height (int) - source height
+      * src_height (int) - source heigh
+      * filters (string) - filters (flip, rotate, etc)
 
     Aspect preserval mode is only used if both source
     and both destination sizes are specified. If source
@@ -175,6 +176,7 @@ class VideoCodec(BaseCodec):
         'mode': str,
         'src_width': int,
         'src_height': int,
+        'filters': str,
     }
 
     def _aspect_corrections(self, sw, sh, w, h, mode):
