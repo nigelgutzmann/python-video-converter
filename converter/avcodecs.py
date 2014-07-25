@@ -144,15 +144,14 @@ class VideoCodec(BaseCodec):
       * codec (string) - video codec name
       * bitrate (string) - stream bitrate
       * fps (integer) - frames per second
-      * width (integer) - video width
-      * height (integer) - video height
+      * max_width (integer) - video width
+      * max_height (integer) - video height
       * mode (string) - aspect preserval mode; one of:
             * stretch (default) - don't preserve aspect
             * crop - crop extra w/h
             * pad - pad with black bars
       * src_width (int) - source width
-      * src_height (int) - source heigh
-      * filters (string) - filters (flip, rotate, etc)
+      * src_height (int) - source height
 
     Aspect preserval mode is only used if both source
     and both destination sizes are specified. If source
@@ -171,12 +170,11 @@ class VideoCodec(BaseCodec):
         'codec': str,
         'bitrate': int,
         'fps': int,
-        'width': int,
-        'height': int,
+        'max_width': int,
+        'max_height': int,
         'mode': str,
         'src_width': int,
         'src_height': int,
-        'filters': str,
     }
 
     def _aspect_corrections(self, sw, sh, w, h, mode):
@@ -255,13 +253,13 @@ class VideoCodec(BaseCodec):
         w = None
         h = None
 
-        if 'width' in safe:
-            w = safe['width']
+        if 'max_width' in safe:
+            w = safe['max_width']
             if w < 16 or w > 4000:
                 w = None
 
-        if 'height' in safe:
-            h = safe['height']
+        if 'max_height' in safe:
+            h = safe['max_height']
             if h < 16 or h > 3000:
                 h = None
 
@@ -283,8 +281,8 @@ class VideoCodec(BaseCodec):
         ow, oh = w, h  # FIXED
         w, h, filters = self._aspect_corrections(sw, sh, w, h, mode)
 
-        safe['width'] = w
-        safe['height'] = h
+        safe['max_width'] = w
+        safe['max_height'] = h
         safe['aspect_filters'] = filters
 
         if w and h:
@@ -292,8 +290,8 @@ class VideoCodec(BaseCodec):
 
         safe = self._codec_specific_parse_options(safe)
 
-        w = safe['width']
-        h = safe['height']
+        w = safe['max_width']
+        h = safe['max_height']
         filters = safe['aspect_filters']
 
         optlist = ['-vcodec', self.ffmpeg_codec_name]
@@ -309,14 +307,6 @@ class VideoCodec(BaseCodec):
 
         if filters:
             optlist.extend(['-vf', filters])
-
-        if 'filters' in safe:
-            if optlist.count('-vf'):
-                current_vf = optlist[optlist.index('-vf') + 1] 
-                new_vf = "{},{}".format(current_vf, safe['filters']) # append filters to current
-                optlist[optlist.index('-vf') + 1] = new_vf
-            else:
-                optlist.extend(['-vf', safe['filters']])
 
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
@@ -558,8 +548,8 @@ class MpegCodec(VideoCodec):
     # it uses the same adjusted dimensions as the codec itself
     # (pad/crop will adjust it further if neccessary)
     def _codec_specific_parse_options(self, safe):
-        w = safe['width']
-        h = safe['height']
+        w = safe['max_width']
+        h = safe['max_height']
 
         if w and h:
             filters = safe['aspect_filters']
