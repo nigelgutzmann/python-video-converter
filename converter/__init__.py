@@ -213,7 +213,7 @@ class Converter(object):
                                                 timeout=timeout):
                 yield int((100.0 * timecode) / info.format.duration)
 
-    def probe(self, fname, posters_as_video=True):
+    def probe(self, *args, **kwargs):
         """
         Examine the media file. See the documentation of
         converter.FFMpeg.probe() for details.
@@ -221,18 +221,25 @@ class Converter(object):
         :param posters_as_video: Take poster images (mainly for audio files) as
             A video stream, defaults to True
         """
-        return self.ffmpeg.probe(fname, posters_as_video)
+        return self.ffmpeg.probe(*args, **kwargs)
 
-    def thumbnail(self, fname, time, outfile, size=None, quality=FFMpeg.DEFAULT_JPEG_QUALITY):
+    def thumbnail(self, *args, **kwargs):
         """
         Create a thumbnail of the media file. See the documentation of
         converter.FFMpeg.thumbnail() for details.
         """
-        return self.ffmpeg.thumbnail(fname, time, outfile, size, quality)
+        return self.ffmpeg.thumbnail(*args, **kwargs)
 
-    def thumbnails(self, fname, option_list):
+    def thumbnails(self, *args, **kwargs):
         """
         Create one or more thumbnail of the media file. See the documentation
         of converter.FFMpeg.thumbnails() for details.
         """
-        return self.ffmpeg.thumbnails(fname, option_list)
+        return self.ffmpeg.thumbnails(*args, **kwargs)
+
+    def thumbnails_by_interval(self, *args, **kwargs):
+        """
+        Create one or more thumbnail of the media file. See the documentation
+        of converter.FFMpeg.thumbnails() for details.
+        """
+        return self.ffmpeg.thumbnails_by_interval(*args, **kwargs)

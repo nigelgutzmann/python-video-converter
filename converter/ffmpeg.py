@@ -522,6 +522,47 @@ class FFMpeg(object):
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
 
+    def thumbnails_by_interval(self, source, output_pattern, interval=1,
+                   max_width=None, max_height=None,
+                   sizing_policy=None):
+        """
+        Create one or more thumbnails of video by a specified interval.
+        """
+        info = self.probe(source)
+
+        video_streams = filter(lambda x: x.type == 'video', info.streams)
+        if not video_streams:
+            raise ValueError("Video stream not found.")
+        else:
+            video_stream = video_streams[0]
+
+        src_width = video_stream.video_width
+        src_height = video_stream.video_height
+        w, h, filters = self._aspect_corrections(src_width, src_height, max_width, max_height, sizing_policy)
+
+        if not os.path.exists(source) and not self.is_url(source):
+            raise IOError('No such file: ' + source)
+
+        cmds = [self.ffmpeg_path, '-i', source, '-y', '-an']
+        cmds.extend(['-f', 'image2'])
+        cmds.extend(['-s', "{}x{}".format(w,h)])
+        cmds.extend(['-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY)])
+
+        if filters:
+            cmds.extend(['-vf', 'fps=fps=1/{},{}'.format(interval, filters)])
+        else:
+            cmds.extend(['-vf', 'fps=fps=1/{}'.format(interval)])
+
+        cmds.extend([output_pattern.format(count="%05d")])
+
+        print " ".join(cmds)
+
+        p = self._spawn(cmds)
+        _, stderr_data = p.communicate()
+        if stderr_data == '':
+            raise FFMpegError('Error while calling ffmpeg binary')
+        stderr_data.decode(console_encoding)
+
     def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY):
         """
         Create a thumbnal of media file, and store it to outfile
@@ -534,6 +575,118 @@ class FFMpeg(object):
         >>> FFMpeg().thumbnail('test1.ogg', 5, '/tmp/shot.png', '320x240')
         """
         return self.thumbnails(fname, [(time, outfile, size, quality)])
+
+    def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
+        if not sw or not sh:
+            return sw, sh, None
+
+        # Original aspect ratio
+        aspect = (1.0 * sw) / (1.0 * sh)
+
+        # If we have only one dimension, we can easily calculate
+        # the other to match the source aspect ratio
+        if not max_width and not max_height:
+            return max_width, max_height, None
+        elif max_width and not max_height:
+            max_height = int((1.0 * max_width) / aspect)
+        elif max_height and not max_width:
+            max_width = int(aspect * max_height)
+
+        if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
+            print "invalid option {}".format(sizing_policy)
+            return sw, sh, None
+
+        """
+        Fit: FFMPEG scales the output video so it matches the value
+        that you specified in either Max Width or Max Height without exceeding the other value."
+        """
+        if sizing_policy == 'Fit':
+            if float(sh/sw) == float(max_height):
+                return max_width, max_height, None  
+            elif float(sh/sw) < float(max_height): # scaling height
+                factor = float(float(max_height)/float(sh))
+                return int(max_width*factor), max_height, None
+            else:
+                factor = float(float(max_width)/float(sw))
+                return max_width, int(sh*factor), None
+
+        """
+        Fill: FFMPEG scales the output video so it matches the value that you specified 
+        in either Max Width or Max Height and matches or exceeds the other value. Elastic Transcoder 
+        centers the output video and then crops it in the dimension (if any) that exceeds the maximum value.
+        """
+        if sizing_policy == 'Fill':
+            if float(sh/sw) == float(max_height):
+                return max_width, max_height, None
+            elif float(sh/sw) < float(max_height): # scaling width
+                factor = float(float(max_width)/float(sw))
+                h0 = int(sh*factor)
+                dh = (h0 - max_height) / 2
+                return max_width, h0, 'crop={}:{}:{}:0'.format(max_width, max_height, dh)
+            else: 
+                factor = float(float(max_height)/float(sh))
+                w0 = int(sw*factor)   
+                dw = (w0 - max_width) / 2
+                return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+
+        """
+        Stretch: FFMPEG stretches the output video to match the values that you specified for Max
+        Width and Max Height. If the relative proportions of the input video and the output video are different, 
+        the output video will be distorted.
+        """
+        if sizing_policy == 'Stretch':
+            print "result h:{}, w:{}".format(max_height, max_width)
+            return max_width, max_height, None
+
+        """
+        Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds 
+        the values that you specified for Max Width and Max Height, Elastic Transcoder crops the output video.
+        """
+        if sizing_policy == 'Keep':
+            return sw, sh, None
+
+        """
+        ShrinkToFit: FFMPEG scales the output video down so that its dimensions match the values that 
+        you specified for at least one of Max Width and Max Height without exceeding either value. If you specify 
+        this option, Elastic Transcoder does not scale the video up.
+        """
+        if sizing_policy == 'ShrinkToFit':
+            if sh > max_height or sw > max_width:
+                if float(sh/sw) == float(max_height):
+                    return  max_width, max_height, None
+                elif float(sh/sw) < float(max_height): # target is taller
+                    factor = float(float(max_height)/float(sh))
+                    return int(sw*factor), max_height, None
+                else:
+                    factor = float(float(max_width)/float(sw))
+                    return max_width, int(sh*factor), None
+            else:
+                return sw, sh, None
+
+        """
+        ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that 
+        you specified for at least one of Max Width and Max Height without dropping below either value. If you specify
+        this option, Elastic Transcoder does not scale the video up.
+        """
+        if sizing_policy == 'ShrinkToFill':
+            if sh < max_height or sw < max_width:
+                if float(sh/sw) == float(max_height):
+                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
+                    return max_width, max_height, None
+                elif float(sh/sw) < float(max_height): # scaling width
+                    factor = float(float(max_width)/float(sw))
+                    h0 = int(sh*factor)
+                    dh = (h0 - max_height) / 2
+                    return max_width, h0, 'crop=%d:%d:%d:0' % (max_width, max_height, dh)
+                else: 
+                    factor = float(float(max_height)/float(sh))
+                    w0 = int(sw*factor)   
+                    dw = (w0 - max_width) / 2
+                    return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+            else:
+                return int(sw*factor), max_height, None
+
+        assert False, sizing_policy
 
     def thumbnails(self, fname, option_list):
         """
