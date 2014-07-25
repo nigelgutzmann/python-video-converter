@@ -146,6 +146,7 @@ class VideoCodec(BaseCodec):
       * fps (integer) - frames per second
       * max_width (integer) - video width
       * max_height (integer) - video height
+      * filters (string) - filters (flip, rotate, etc)
       * sizing_policy (string) - aspect preserval mode; one of:
             ...
       * src_width (int) - source width
@@ -173,6 +174,7 @@ class VideoCodec(BaseCodec):
         'sizing_policy': str,
         'src_width': int,
         'src_height': int,
+        'filters': str,
     }
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
@@ -348,6 +350,15 @@ class VideoCodec(BaseCodec):
 
         if filters:
             optlist.extend(['-vf', filters])
+
+        if 'filters' in safe:
+            if optlist.count('-vf'):
+                current_vf = optlist[optlist.index('-vf') + 1] 
+                new_vf = "{},{}".format(current_vf, safe['filters']) # append filters to current
+                optlist[optlist.index('-vf') + 1] = new_vf
+            else:
+                optlist.extend(['-vf', safe['filters']])
+
 
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
