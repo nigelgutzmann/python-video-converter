@@ -146,10 +146,8 @@ class VideoCodec(BaseCodec):
       * fps (integer) - frames per second
       * max_width (integer) - video width
       * max_height (integer) - video height
-      * mode (string) - aspect preserval mode; one of:
-            * stretch (default) - don't preserve aspect
-            * crop - crop extra w/h
-            * pad - pad with black bars
+      * sizing_policy (string) - aspect preserval mode; one of:
+            ...
       * src_width (int) - source width
       * src_height (int) - source height
 
@@ -172,68 +170,111 @@ class VideoCodec(BaseCodec):
         'fps': int,
         'max_width': int,
         'max_height': int,
-        'mode': str,
+        'sizing_policy': str,
         'src_width': int,
         'src_height': int,
     }
 
-    def _aspect_corrections(self, sw, sh, w, h, mode):
-        # If we don't have source info, we don't try to calculate
-        # aspect corrections
-        if not sw or not sh:
-            return w, h, None
+    def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
+        if not max_width or not max_height or not sw or not sh:
+            return sw, sh, None
 
-        # Original aspect ratio
-        aspect = (1.0 * sw) / (1.0 * sh)
+        if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
+            print "invalid option {}".format(sizing_policy)
+            return sw, sh, None
 
-        # If we have only one dimension, we can easily calculate
-        # the other to match the source aspect ratio
-        if not w and not h:
-            return w, h, None
-        elif w and not h:
-            h = int((1.0 * w) / aspect)
-            return w, h, None
-        elif h and not w:
-            w = int(aspect * h)
-            return w, h, None
+        """
+        Fit: FFMPEG scales the output video so it matches the value
+        that you specified in either Max Width or Max Height without exceeding the other value."
+        """
+        if sizing_policy == 'Fit':
+            if float(sh/sw) == float(max_height):
+                return max_width, max_height, None  
+            elif float(sh/sw) < float(max_height): # scaling height
+                factor = float(float(max_height)/float(sh))
+                return int(w*factor), max_height, None
+            else:
+                factor = float(float(max_width)/float(sw))
+                return max_width, int(sh*factor), None
 
-        # If source and target dimensions are actually the same aspect
-        # ratio, we've got nothing to do
-        if int(aspect * h) == w:
-            return w, h, None
+        """
+        Fill: FFMPEG scales the output video so it matches the value that you specified 
+        in either Max Width or Max Height and matches or exceeds the other value. Elastic Transcoder 
+        centers the output video and then crops it in the dimension (if any) that exceeds the maximum value.
+        """
+        if sizing_policy == 'Fill':
+            if float(sh/sw) == float(max_height):
+                return max_width, max_height, None
+            elif float(sh/sw) < float(max_height): # scaling width
+                factor = float(float(max_width)/float(sw))
+                h0 = int(sh*factor)
+                dh = (h0 - max_height) / 2
+                return max_width, h0, 'crop={}:{}:{}:0'.format(max_width, max_height, dh)
+            else: 
+                factor = float(float(max_height)/float(sh))
+                w0 = int(sw*factor)   
+                dw = (w0 - max_width) / 2
+                return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
 
-        if mode == 'stretch':
-            return w, h, None
+        """
+        Stretch: FFMPEG stretches the output video to match the values that you specified for Max
+        Width and Max Height. If the relative proportions of the input video and the output video are different, 
+        the output video will be distorted.
+        """
+        if sizing_policy == 'Stretch':
+            print "result h:{}, w:{}".format(max_height, max_width)
+            return max_width, max_height, None
 
-        target_aspect = (1.0 * w) / (1.0 * h)
+        """
+        Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds 
+        the values that you specified for Max Width and Max Height, Elastic Transcoder crops the output video.
+        """
+        if sizing_policy == 'Keep':
+            return sw, sh, None
 
-        if mode == 'crop':
-            # source is taller, need to crop top/bottom
-            if target_aspect > aspect:  # target is taller
-                h0 = int(w / aspect)
-                assert h0 > h, (sw, sh, w, h)
-                dh = (h0 - h) / 2
-                return w, h0, 'crop=%d:%d:0:%d' % (w, h, dh)
-            else:  # source is wider, need to crop left/right
-                w0 = int(h * aspect)
-                assert w0 > w, (sw, sh, w, h)
-                dw = (w0 - w) / 2
-                return w0, h, 'crop=%d:%d:%d:0' % (w, h, dw)
+        """
+        ShrinkToFit: FFMPEG scales the output video down so that its dimensions match the values that 
+        you specified for at least one of Max Width and Max Height without exceeding either value. If you specify 
+        this option, Elastic Transcoder does not scale the video up.
+        """
+        if sizing_policy == 'ShrinkToFit':
+            if sh > max_height or sw > max_width:
+                if float(sh/sw) == float(max_height):
+                    return  max_width, max_height, None
+                elif float(sh/sw) < float(max_height): # target is taller
+                    factor = float(float(max_height)/float(sh))
+                    return int(sw*factor), max_height, None
+                else:
+                    factor = float(float(max_width)/float(sw))
+                    return max_width, int(sh*factor), None
+            else:
+                return sw, sh, None
 
-        if mode == 'pad':
-            # target is taller, need to pad top/bottom
-            if target_aspect < aspect:
-                h1 = int(w / aspect)
-                assert h1 < h, (sw, sh, w, h)
-                dh = (h - h1) / 2
-                return w, h1, 'pad=%d:%d:0:%d' % (w, h, dh)  # FIXED
-            else:  # target is wider, need to pad left/right
-                w1 = int(h * aspect)
-                assert w1 < w, (sw, sh, w, h)
-                dw = (w - w1) / 2
-                return w1, h, 'pad=%d:%d:%d:0' % (w, h, dw)  # FIXED
+        """
+        ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that 
+        you specified for at least one of Max Width and Max Height without dropping below either value. If you specify
+        this option, Elastic Transcoder does not scale the video up.
+        """
+        if sizing_policy == 'ShrinkToFill':
+            if sh < max_height or sw < max_width:
+                if float(sh/sw) == float(max_height):
+                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
+                    return max_width, max_height, None
+                elif float(sh/sw) < float(max_height): # scaling width
+                    factor = float(float(max_width)/float(sw))
+                    h0 = int(sh*factor)
+                    dh = (h0 - max_height) / 2
+                    return max_width, h0, 'crop=%d:%d:%d:0' % (max_width, max_height, dh)
+                else: 
+                    factor = float(float(max_height)/float(sh))
+                    w0 = int(sw*factor)   
+                    dw = (w0 - max_width) / 2
+                    return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+            else:
+                print "result h:{}, w:{}".format(sh, sw)  
+                return int(sw*factor), max_height, None
 
-        assert False, mode
+        assert False, sizing_policy
 
     def parse_options(self, opt):
         super(VideoCodec, self).parse_options(opt)
@@ -273,13 +314,13 @@ class VideoCodec(BaseCodec):
                 sw = None
                 sh = None
 
-        mode = 'stretch'
-        if 'mode' in safe:
-            if safe['mode'] in ['stretch', 'crop', 'pad']:
-                mode = safe['mode']
+        sizing_policy = 'Keep'
+        if 'sizing_policy' in safe:
+            if safe['sizing_policy'] in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
+                sizing_policy = safe['sizing_policy']
 
         ow, oh = w, h  # FIXED
-        w, h, filters = self._aspect_corrections(sw, sh, w, h, mode)
+        w, h, filters = self._aspect_corrections(sw, sh, w, h, sizing_policy)
 
         safe['max_width'] = w
         safe['max_height'] = h
