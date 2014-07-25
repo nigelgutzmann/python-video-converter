@@ -321,7 +321,6 @@ class VideoCodec(BaseCodec):
             if safe['sizing_policy'] in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
                 sizing_policy = safe['sizing_policy']
 
-        ow, oh = w, h  # FIXED
         w, h, filters = self._aspect_corrections(sw, sh, w, h, sizing_policy)
 
         safe['max_width'] = w
@@ -333,8 +332,9 @@ class VideoCodec(BaseCodec):
 
         safe = self._codec_specific_parse_options(safe)
 
-        w = safe['max_width']
-        h = safe['max_height']
+        #w = safe['max_width']
+        #h = safe['max_height']
+
         filters = safe['aspect_filters']
 
         optlist = ['-vcodec', self.ffmpeg_codec_name]
@@ -345,8 +345,8 @@ class VideoCodec(BaseCodec):
         if w and h:
             optlist.extend(['-s', '%dx%d' % (w, h)])
 
-            if ow and oh:
-                optlist.extend(['-aspect', '%d:%d' % (ow, oh)])
+            if 'aspect' in safe:
+                optlist.extend(['-aspect', '{}:{}'.format(w, h)])
 
         if filters:
             optlist.extend(['-vf', filters])
