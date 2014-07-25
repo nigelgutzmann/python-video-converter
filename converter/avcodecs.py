@@ -192,7 +192,7 @@ class VideoCodec(BaseCodec):
                 return max_width, max_height, None  
             elif float(sh/sw) < float(max_height): # scaling height
                 factor = float(float(max_height)/float(sh))
-                return int(w*factor), max_height, None
+                return int(sw*factor), max_height, None
             else:
                 factor = float(float(max_width)/float(sw))
                 return max_width, int(sh*factor), None
