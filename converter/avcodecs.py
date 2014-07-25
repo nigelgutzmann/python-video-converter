@@ -293,8 +293,7 @@ class VideoCodec(BaseCodec):
             if br < 16 or br > 15000:
                 del safe['bitrate']
 
-        w = None
-        h = None
+        w = h = None
 
         if 'max_width' in safe:
             w = safe['max_width']
@@ -306,15 +305,8 @@ class VideoCodec(BaseCodec):
             if h < 16 or h > 3000:
                 h = None
 
-        sw = None
-        sh = None
-
-        if 'src_width' in safe and 'src_height' in safe:
-            sw = safe['src_width']
-            sh = safe['src_height']
-            if not sw or not sh:
-                sw = None
-                sh = None
+        sw = safe.get('src_width', None)
+        sh = safe.get('src_height', None)
 
         sizing_policy = 'Keep'
         if 'sizing_policy' in safe:
@@ -328,7 +320,7 @@ class VideoCodec(BaseCodec):
         safe['aspect_filters'] = filters
 
         if w and h:
-            safe['aspect'] = '%d:%d' % (w, h)
+            safe['aspect'] = '{}:{}'.format(w,h)
 
         safe = self._codec_specific_parse_options(safe)
 
@@ -343,8 +335,7 @@ class VideoCodec(BaseCodec):
         if 'bitrate' in safe:
             optlist.extend(['-vb', str(safe['bitrate']) + 'k'])  # FIXED
         if w and h:
-            optlist.extend(['-s', '%dx%d' % (w, h)])
-
+            optlist.extend(['-s', '{}x{}'.format(w,h)])
             if 'aspect' in safe:
                 optlist.extend(['-aspect', '{}:{}'.format(w, h)])
 
