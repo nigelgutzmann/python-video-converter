@@ -151,6 +151,7 @@ class VideoCodec(BaseCodec):
             ...
       * src_width (int) - source width
       * src_height (int) - source height
+      * src_rotate (90) - 
 
     Aspect preserval mode is only used if both source
     and both destination sizes are specified. If source
@@ -174,8 +175,28 @@ class VideoCodec(BaseCodec):
         'sizing_policy': str,
         'src_width': int,
         'src_height': int,
+        'src_rotate': int,
         'filters': str,
+        'autorotate': bool, 
     }
+
+    def _autorotate(self, src_rotate):
+        filters = {
+            90: "transpose=1",
+            180: "transpose=2,transpose=2",
+            270: "transpose=2"
+        }
+        return filters[src_rotate]
+
+
+    def _extend_vf(self, optlist, value):
+        if optlist.count('-vf'):
+            current_vf = optlist[optlist.index('-vf') + 1] 
+            new_vf = "{},{}".format(current_vf, value) # append filters to current
+            optlist[optlist.index('-vf') + 1] = new_vf
+        else:
+            optlist.extend(['-vf', value])   
+        return optlist
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not max_width or not max_height or not sw or not sh:
@@ -342,14 +363,12 @@ class VideoCodec(BaseCodec):
         if filters:
             optlist.extend(['-vf', filters])
 
-        if 'filters' in safe:
-            if optlist.count('-vf'):
-                current_vf = optlist[optlist.index('-vf') + 1] 
-                new_vf = "{},{}".format(current_vf, safe['filters']) # append filters to current
-                optlist[optlist.index('-vf') + 1] = new_vf
-            else:
-                optlist.extend(['-vf', safe['filters']])
+        if safe.get('autorotate', False) and 'src_rotate' in safe:
+            rotate_filter = self._autorotate(safe['src_rotate'])
+            optlist = self._extend_vf(optlist, rotate_filter)
 
+        if 'filters' in safe:
+            optlist = self._extend_vf(optlist, safe['filters'])
 
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
