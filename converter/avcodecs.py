@@ -560,6 +560,10 @@ class H264Codec(VideoCodec):
         # http://mewiki.project357.com/wiki/X264_Settings#profile
         'profile': str,  # default: not-set, for valid values see above link
         'tune': str,  # default: not-set, for valid values see above link
+        'level': str,  # The H.264 level that you want to use for the output video
+        'max_reference_frames': int,  # reference frames
+        'max_rate': str,
+        'max_frames_between_keyframes': int,
     })
 
     def _codec_specific_produce_ffmpeg_list(self, safe):
@@ -572,6 +576,15 @@ class H264Codec(VideoCodec):
             optlist.extend(['-profile', safe['profile']])
         if 'tune' in safe:
             optlist.extend(['-tune', safe['tune']])
+        if 'level' in safe:
+            optlist.extend(['-level', safe['level']])
+        if 'max_reference_frames' in safe:
+            optlist.extend(['-refs', str(safe['max_reference_frames'])])
+        if 'max_rate' in safe:
+            optlist.extend(['-maxrate', str(safe['max_rate'])])
+        if 'max_frames_between_keyframes' in safe:
+            optlist.extend(['-g', str(safe['max_frames_between_keyframes'])])
+
         return optlist
 
 
