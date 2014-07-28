@@ -340,6 +340,14 @@ class VideoCodec(BaseCodec):
         safe['max_height'] = h
         safe['aspect_filters'] = filters
 
+        # swap height and width if vertical rotate 
+        if safe.get('autorotate') and 'src_rotate' in safe:
+            if safe['src_rotate'] in [90, 270]:
+                old_w = w
+                old_h = h
+                safe['max_width'] = w = old_h
+                safe['max_height'] = h = old_w
+
         if w and h:
             safe['aspect'] = '{}:{}'.format(w,h)
 
@@ -347,7 +355,6 @@ class VideoCodec(BaseCodec):
 
         #w = safe['max_width']
         #h = safe['max_height']
-
         filters = safe['aspect_filters']
 
         optlist = ['-vcodec', self.ffmpeg_codec_name]
