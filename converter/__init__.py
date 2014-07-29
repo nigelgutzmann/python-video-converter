@@ -193,6 +193,8 @@ class Converter(object):
             v = options['video'] = options['video'].copy()
             v['src_width'] = info.video.video_width
             v['src_height'] = info.video.video_height
+            if 'rotate' in info.video.metadata:
+                v['src_rotate'] = info.video.metadata['rotate']
 
         if info.format.duration < 0.01:
             raise ConverterError('Zero-length media')
