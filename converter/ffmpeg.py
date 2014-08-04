@@ -523,13 +523,12 @@ class FFMpeg(object):
                                      total_output, pid=p.pid)
 
     def thumbnails_by_interval(self, source, output_pattern, interval=1,
-                   max_width=None, max_height=None,
+                   max_width=None, max_height=None, autorotate=False,
                    sizing_policy=None):
         """
         Create one or more thumbnails of video by a specified interval.
         """
         info = self.probe(source)
-
         video_streams = filter(lambda x: x.type == 'video', info.streams)
         if not video_streams:
             raise ValueError("Video stream not found.")
@@ -540,6 +539,24 @@ class FFMpeg(object):
         src_height = video_stream.video_height
         w, h, filters = self._aspect_corrections(src_width, src_height, max_width, max_height, sizing_policy)
 
+        if autorotate and 'rotate' in video_stream.metadata:
+            src_rotate = int(video_stream.metadata['rotate'])
+            # apply filter   
+            rotate_filter = {
+                90: "transpose=1",
+                180: "transpose=2,transpose=2",
+                270: "transpose=2"
+            }
+            filters = '{0}{2}{1}'.format(filters or '',
+                                            rotate_filter[src_rotate] or '',
+                                            ',' if filters and rotate_filter[src_rotate] else '')
+            # swap height and width if vertical rotation
+            if src_rotate in [90, 270]:
+                old_w = w
+                old_h = h
+                w = old_h
+                h = old_w
+        
         if not os.path.exists(source) and not self.is_url(source):
             raise IOError('No such file: ' + source)
 
