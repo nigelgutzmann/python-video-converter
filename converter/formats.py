@@ -103,6 +103,7 @@ class HLSFormat(BaseFormat):
             raise ValueError('invalid Format format')
 
         optlist = []
+        optlist.extend(['-dn'])
         optlist.extend(['-f', self.ffmpeg_format_name])
         if 'flags' in opt:
             optlist.extend(['-flags', str(opt.get('flags'))])
