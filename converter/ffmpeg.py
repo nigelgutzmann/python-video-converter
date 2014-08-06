@@ -402,7 +402,7 @@ class FFMpeg(object):
         :param posters_as_video: Take poster images (mainly for audio files) as
             A video stream, defaults to True
         """
-
+        raise Exception("test error")
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
