@@ -250,7 +250,7 @@ class VideoCodec(BaseCodec):
 
         """
         Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds 
-        the values that you specified for Max Width and Max Height, Elastic Transcoder crops the output video.
+        the values that you specified for Max Width and Max Height, FFMPEG crops the output video.
         """
         if sizing_policy == 'Keep':
             return sw, sh, None
@@ -276,7 +276,7 @@ class VideoCodec(BaseCodec):
         """
         ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that 
         you specified for at least one of Max Width and Max Height without dropping below either value. If you specify
-        this option, Elastic Transcoder does not scale the video up.
+        this option, FFMPEG does not scale the video up.
         """
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
@@ -356,7 +356,11 @@ class VideoCodec(BaseCodec):
         #w = safe['max_width']
         #h = safe['max_height']
         filters = safe['aspect_filters']
-
+        
+        # Use the most common pixel format by default. If the selected pixel format can not be selected, 
+        # ffmpeg select the best pixel format supported by the encoder.
+        optlist = ['-pix_fmt', 'yuv420p']
+           
         optlist = ['-vcodec', self.ffmpeg_codec_name]
         if 'fps' in safe:
             optlist.extend(['-r', str(safe['fps'])])
