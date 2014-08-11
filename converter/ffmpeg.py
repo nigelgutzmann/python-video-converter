@@ -445,7 +445,6 @@ class FFMpeg(object):
         cmds = [self.ffmpeg_path, '-i', infile]
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
-        print cmds
         if timeout:
             def on_sigalrm(*_):
                 signal.signal(signal.SIGALRM, signal.SIG_DFL)
@@ -571,7 +570,6 @@ class FFMpeg(object):
 
         cmds.extend([output_pattern.format(count="%05d")])
 
-        print " ".join(cmds)
 
         p = self._spawn(cmds)
         _, stderr_data = p.communicate()
@@ -651,7 +649,6 @@ class FFMpeg(object):
         the output video will be distorted.
         """
         if sizing_policy == 'Stretch':
-            print "result h:{}, w:{}".format(max_height, max_width)
             return max_width, max_height, None
 
         """
@@ -687,7 +684,6 @@ class FFMpeg(object):
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
                 if float(sh/sw) == float(max_height):
-                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
                     return max_width, max_height, None
                 elif float(sh/sw) < float(max_height): # scaling width
                     factor = float(float(max_width)/float(sw))

@@ -245,7 +245,6 @@ class VideoCodec(BaseCodec):
         the output video will be distorted.
         """
         if sizing_policy == 'Stretch':
-            print "result h:{}, w:{}".format(max_height, max_width)
             return max_width, max_height, None
 
         """
@@ -281,7 +280,6 @@ class VideoCodec(BaseCodec):
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
                 if float(sh/sw) == float(max_height):
-                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
                     return max_width, max_height, None
                 elif float(sh/sw) < float(max_height): # scaling width
                     factor = float(float(max_width)/float(sw))
@@ -294,7 +292,6 @@ class VideoCodec(BaseCodec):
                     dw = (w0 - max_width) / 2
                     return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
             else:
-                print "result h:{}, w:{}".format(sh, sw)  
                 return int(sw*factor), max_height, None
 
         assert False, sizing_policy
