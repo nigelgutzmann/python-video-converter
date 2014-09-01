@@ -317,11 +317,15 @@ class VideoCodec(BaseCodec):
             w = safe['max_width']
             if w < 16 or w > 4000:
                 w = None
+            elif w % 2:   
+                w +=1 
 
         if 'max_height' in safe:
             h = safe['max_height']
             if h < 16 or h > 3000:
                 h = None
+            elif h % 2:   
+                h +=1 
 
         sw = safe.get('src_width', None)
         sh = safe.get('src_height', None)
