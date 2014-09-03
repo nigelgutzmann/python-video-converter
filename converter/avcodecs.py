@@ -198,6 +198,9 @@ class VideoCodec(BaseCodec):
             optlist.extend(['-vf', value])   
         return optlist
 
+    def _div_by_2(d):
+        return d+1 if d % 2 else d
+
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not max_width or not max_height or not sw or not sh:
             return sw, sh, None
@@ -336,6 +339,8 @@ class VideoCodec(BaseCodec):
                 sizing_policy = safe['sizing_policy']
 
         w, h, filters = self._aspect_corrections(sw, sh, w, h, sizing_policy)
+        w = self._div_by_2(w)
+        h = self._div_by_2(h)
 
         safe['max_width'] = w
         safe['max_height'] = h

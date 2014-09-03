@@ -536,6 +536,8 @@ class FFMpeg(object):
         src_width = video_stream.video_width
         src_height = video_stream.video_height
         w, h, filters = self._aspect_corrections(src_width, src_height, max_width, max_height, sizing_policy)
+        w = self._div_by_2(w)
+        h = self._div_by_2(h)
 
         if autorotate and 'rotate' in video_stream.metadata:
             src_rotate = int(video_stream.metadata['rotate'])
@@ -589,6 +591,9 @@ class FFMpeg(object):
         >>> FFMpeg().thumbnail('test1.ogg', 5, '/tmp/shot.png', '320x240')
         """
         return self.thumbnails(fname, [(time, outfile, size, quality)])
+
+    def _div_by_2(d):
+        return d+1 if d % 2 else d
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not sw or not sh:
