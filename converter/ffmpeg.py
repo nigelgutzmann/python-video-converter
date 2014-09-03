@@ -592,7 +592,7 @@ class FFMpeg(object):
         """
         return self.thumbnails(fname, [(time, outfile, size, quality)])
 
-    def _div_by_2(d):
+    def _div_by_2(self, d):
         return d+1 if d % 2 else d
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
