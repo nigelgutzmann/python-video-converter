@@ -402,7 +402,6 @@ class FFMpeg(object):
         :param posters_as_video: Take poster images (mainly for audio files) as
             A video stream, defaults to True
         """
-
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
@@ -446,7 +445,6 @@ class FFMpeg(object):
         cmds = [self.ffmpeg_path, '-i', infile]
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
-        print cmds
         if timeout:
             def on_sigalrm(*_):
                 signal.signal(signal.SIGALRM, signal.SIG_DFL)
@@ -538,6 +536,8 @@ class FFMpeg(object):
         src_width = video_stream.video_width
         src_height = video_stream.video_height
         w, h, filters = self._aspect_corrections(src_width, src_height, max_width, max_height, sizing_policy)
+        w = self._div_by_2(w)
+        h = self._div_by_2(h)
 
         if autorotate and 'rotate' in video_stream.metadata:
             src_rotate = int(video_stream.metadata['rotate'])
@@ -580,7 +580,6 @@ class FFMpeg(object):
 
         cmds.extend([output_pattern.format(count="%05d")])
 
-        print " ".join(cmds)
 
         p = self._spawn(cmds)
         _, stderr_data = p.communicate()
@@ -600,6 +599,9 @@ class FFMpeg(object):
         >>> FFMpeg().thumbnail('test1.ogg', 5, '/tmp/shot.png', '320x240')
         """
         return self.thumbnails(fname, [(time, outfile, size, quality)])
+
+    def _div_by_2(self, d):
+        return d+1 if d % 2 else d
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not sw or not sh:
@@ -660,7 +662,6 @@ class FFMpeg(object):
         the output video will be distorted.
         """
         if sizing_policy == 'Stretch':
-            print "result h:{}, w:{}".format(max_height, max_width)
             return max_width, max_height, None
 
         """
@@ -696,7 +697,6 @@ class FFMpeg(object):
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
                 if float(sh/sw) == float(max_height):
-                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
                     return max_width, max_height, None
                 elif float(sh/sw) < float(max_height): # scaling width
                     factor = float(float(max_width)/float(sw))

@@ -198,6 +198,9 @@ class VideoCodec(BaseCodec):
             optlist.extend(['-vf', value])   
         return optlist
 
+    def _div_by_2(self, d):
+        return d+1 if d % 2 else d
+
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not max_width or not max_height or not sw or not sh:
             return sw, sh, None
@@ -245,12 +248,11 @@ class VideoCodec(BaseCodec):
         the output video will be distorted.
         """
         if sizing_policy == 'Stretch':
-            print "result h:{}, w:{}".format(max_height, max_width)
             return max_width, max_height, None
 
         """
         Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds 
-        the values that you specified for Max Width and Max Height, Elastic Transcoder crops the output video.
+        the values that you specified for Max Width and Max Height, FFMPEG crops the output video.
         """
         if sizing_policy == 'Keep':
             return sw, sh, None
@@ -276,12 +278,11 @@ class VideoCodec(BaseCodec):
         """
         ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that 
         you specified for at least one of Max Width and Max Height without dropping below either value. If you specify
-        this option, Elastic Transcoder does not scale the video up.
+        this option, FFMPEG does not scale the video up.
         """
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
                 if float(sh/sw) == float(max_height):
-                    print "same proportions: scaling to h:{}, w:{}".format(max_height, max_width)
                     return max_width, max_height, None
                 elif float(sh/sw) < float(max_height): # scaling width
                     factor = float(float(max_width)/float(sw))
@@ -294,7 +295,6 @@ class VideoCodec(BaseCodec):
                     dw = (w0 - max_width) / 2
                     return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
             else:
-                print "result h:{}, w:{}".format(sh, sw)  
                 return int(sw*factor), max_height, None
 
         assert False, sizing_policy
@@ -320,11 +320,15 @@ class VideoCodec(BaseCodec):
             w = safe['max_width']
             if w < 16 or w > 4000:
                 w = None
+            elif w % 2:   
+                w +=1 
 
         if 'max_height' in safe:
             h = safe['max_height']
             if h < 16 or h > 3000:
                 h = None
+            elif h % 2:   
+                h +=1 
 
         sw = safe.get('src_width', None)
         sh = safe.get('src_height', None)
@@ -335,6 +339,8 @@ class VideoCodec(BaseCodec):
                 sizing_policy = safe['sizing_policy']
 
         w, h, filters = self._aspect_corrections(sw, sh, w, h, sizing_policy)
+        w = self._div_by_2(w)
+        h = self._div_by_2(h)
 
         safe['max_width'] = w
         safe['max_height'] = h
@@ -356,7 +362,11 @@ class VideoCodec(BaseCodec):
         #w = safe['max_width']
         #h = safe['max_height']
         filters = safe['aspect_filters']
-
+        
+        # Use the most common pixel format by default. If the selected pixel format can not be selected, 
+        # ffmpeg select the best pixel format supported by the encoder.
+        optlist = ['-pix_fmt', 'yuv420p']
+           
         optlist = ['-vcodec', self.ffmpeg_codec_name]
         if 'fps' in safe:
             optlist.extend(['-r', str(safe['fps'])])
