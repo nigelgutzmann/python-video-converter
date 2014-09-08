@@ -524,7 +524,7 @@ class FFMpeg(object):
 
     def thumbnails_by_interval(self, source, output_pattern, interval=1,
                    max_width=None, max_height=None, autorotate=False,
-                   sizing_policy=None):
+                   sizing_policy=None, skip=False):
         """
         Create one or more thumbnails of video by a specified interval.
         """
@@ -560,7 +560,15 @@ class FFMpeg(object):
         if not os.path.exists(source) and not self.is_url(source):
             raise IOError('No such file: ' + source)
 
-        cmds = [self.ffmpeg_path, '-i', source, '-y', '-an']
+        cmds = [self.ffmpeg_path, ]
+
+        if skip:
+            if info.format.duration > 10:
+                cmds.extend['-ss', '10']
+            else:
+                cmds.extend['-ss', str(int(info.format.duration / 2))]
+
+        cmds.extend(['-i', source, '-y', '-an'])
         cmds.extend(['-f', 'image2'])
         cmds.extend(['-s', "{}x{}".format(w,h)])
         cmds.extend(['-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY)])
