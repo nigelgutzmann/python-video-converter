@@ -564,9 +564,9 @@ class FFMpeg(object):
 
         if skip:
             if info.format.duration > 10:
-                cmds.extend['-ss', '10']
+                cmds.extend(['-ss', '10'])
             else:
-                cmds.extend['-ss', str(int(info.format.duration / 2))]
+                cmds.extend(['-ss', str(int(info.format.duration / 2))])
 
         cmds.extend(['-i', source, '-y', '-an'])
         cmds.extend(['-f', 'image2'])
