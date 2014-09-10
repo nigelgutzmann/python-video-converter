@@ -548,8 +548,8 @@ class FFMpeg(object):
                 270: "transpose=2"
             }
             filters = '{0}{2}{1}'.format(filters or '',
-                                            rotate_filter.get(src_rotate) ,
-                                            ',' if filters and rotate_filter.get(src_rotate) else '')
+                                            rotate_filter[src_rotate] or '' ,
+                                            ',' if filters and rotate_filter[src_rotate] else '')
             # swap height and width if vertical rotation
             if src_rotate in [90, 270]:
                 old_w = w

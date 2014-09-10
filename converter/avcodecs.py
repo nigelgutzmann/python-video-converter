@@ -186,12 +186,10 @@ class VideoCodec(BaseCodec):
             180: "transpose=2,transpose=2",
             270: "transpose=2"
         }
-        return filters.get(src_rotate)
+        return filters[src_rotate]
 
     def _extend_vf(self, optlist, value):
-        if not value:
-            return optlist
-        elif optlist.count('-vf'):
+        if optlist.count('-vf'):
             current_vf = optlist[optlist.index('-vf') + 1] 
             new_vf = "{},{}".format(current_vf, value) # append filters to current
             optlist[optlist.index('-vf') + 1] = new_vf
