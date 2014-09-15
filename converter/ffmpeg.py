@@ -540,22 +540,24 @@ class FFMpeg(object):
         h = self._div_by_2(h)
 
         if autorotate and 'rotate' in video_stream.metadata:
-            src_rotate = int(video_stream.metadata['rotate'])
-            # apply filter   
             rotate_filter = {
                 90: "transpose=1",
                 180: "transpose=2,transpose=2",
                 270: "transpose=2"
             }
-            filters = '{0}{2}{1}'.format(filters or '',
-                                            rotate_filter[src_rotate] or '' ,
-                                            ',' if filters and rotate_filter[src_rotate] else '')
-            # swap height and width if vertical rotation
-            if src_rotate in [90, 270]:
-                old_w = w
-                old_h = h
-                w = old_h
-                h = old_w
+            raw_rotate = video_stream.metadata.get('rotate')
+            if raw_rotate and int(raw_rotate) in rotate_filter.keys():
+                src_rotate = int(raw_rotate)
+                # apply filter   
+                filters = '{0}{2}{1}'.format(filters or '',
+                                                rotate_filter[src_rotate] or '' ,
+                                                ',' if filters and rotate_filter[src_rotate] else '')
+                # swap height and width if vertical rotation
+                if src_rotate in [90, 270]:
+                    old_w = w
+                    old_h = h
+                    w = old_h
+                    h = old_w
         
         if not os.path.exists(source) and not self.is_url(source):
             raise IOError('No such file: ' + source)
