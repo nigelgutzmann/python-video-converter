@@ -225,6 +225,9 @@ class MediaStreamInfo(object):
         else:
             value = 'MediaStreamInfo(%s)' % d
 
+        if isinstance(value, unicode):
+            value = value.encode(console_encoding, 'replace')
+
         return value
 
 
@@ -410,7 +413,7 @@ class FFMpeg(object):
         p = self._spawn([self.ffprobe_path,
                          '-show_format', '-show_streams', fname])
         stdout_data, _ = p.communicate()
-        stdout_data = stdout_data.decode(console_encoding, errors='ignore')
+        stdout_data = stdout_data.decode(console_encoding, 'ignore')
         info.parse_ffprobe(stdout_data)
 
         if not info.format.format and len(info.streams) == 0:
@@ -473,7 +476,7 @@ class FFMpeg(object):
             if not ret:
                 break
 
-            ret = ret.decode(console_encoding, errors="ignore")
+            ret = ret.decode(console_encoding, "ignore")
             total_output += ret
             buf += ret
             if '\r' in buf:
@@ -587,7 +590,7 @@ class FFMpeg(object):
         _, stderr_data = p.communicate()
         if stderr_data == '':
             raise FFMpegError('Error while calling ffmpeg binary')
-        stderr_data.decode(console_encoding, errors="ignore")
+        stderr_data.decode(console_encoding, "ignore")
 
     def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY):
         """
@@ -743,6 +746,6 @@ class FFMpeg(object):
         _, stderr_data = p.communicate()
         if stderr_data == '':
             raise FFMpegError('Error while calling ffmpeg binary')
-        stderr_data.decode(console_encoding, errors="ignore")
+        stderr_data.decode(console_encoding, "ignore")
         if any(not os.path.exists(option[1]) for option in option_list):
             raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
