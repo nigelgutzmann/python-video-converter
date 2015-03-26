@@ -194,8 +194,8 @@ class VideoCodec(BaseCodec):
             return optlist
         
         if optlist.count('-vf'):
-            current_vf = optlist[optlist.index('-vf') + 1] 
-            new_vf = "{},{}".format(current_vf, value) # append filters to current
+            current_vf = optlist[optlist.index('-vf') + 1]
+            new_vf = "{0},{1}".format(current_vf, value) # append filters to current
             optlist[optlist.index('-vf') + 1] = new_vf
         else:
             optlist.extend(['-vf', value])   
@@ -209,7 +209,7 @@ class VideoCodec(BaseCodec):
             return sw, sh, None
 
         if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
-            print "invalid option {}".format(sizing_policy)
+            print "invalid option {0}".format(sizing_policy)
             return sw, sh, None
 
         """
@@ -238,12 +238,12 @@ class VideoCodec(BaseCodec):
                 factor = float(float(max_width)/float(sw))
                 h0 = int(sh*factor)
                 dh = (h0 - max_height) / 2
-                return max_width, h0, 'crop={}:{}:{}:0'.format(max_width, max_height, dh)
-            else: 
+                return max_width, h0, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dh)
+            else:
                 factor = float(float(max_height)/float(sh))
                 w0 = int(sw*factor)   
                 dw = (w0 - max_width) / 2
-                return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+                return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
 
         """
         Stretch: FFMPEG stretches the output video to match the values that you specified for Max
@@ -296,7 +296,7 @@ class VideoCodec(BaseCodec):
                     factor = float(float(max_height)/float(sh))
                     w0 = int(sw*factor)   
                     dw = (w0 - max_width) / 2
-                    return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+                    return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
             else:
                 return int(sw*factor), max_height, None
 
@@ -358,7 +358,7 @@ class VideoCodec(BaseCodec):
                 safe['max_height'] = h = old_w
 
         if w and h:
-            safe['aspect'] = '{}:{}'.format(w,h)
+            safe['aspect'] = '{0}:{1}'.format(w,h)
 
         safe = self._codec_specific_parse_options(safe)
 
@@ -375,9 +375,9 @@ class VideoCodec(BaseCodec):
         if 'bitrate' in safe:
             optlist.extend(['-vb', str(safe['bitrate']) + 'k'])  # FIXED
         if w and h:
-            optlist.extend(['-s', '{}x{}'.format(w,h)])
+            optlist.extend(['-s', '{0}x{1}'.format(w,h)])
             if 'aspect' in safe:
-                optlist.extend(['-aspect', '{}:{}'.format(w, h)])
+                optlist.extend(['-aspect', '{0}:{1}'.format(w, h)])
 
         if filters:
             optlist.extend(['-vf', filters])
