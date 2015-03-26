@@ -151,7 +151,7 @@ class VideoCodec(BaseCodec):
             ...
       * src_width (int) - source width
       * src_height (int) - source height
-      * src_rotate (90) - 
+      * src_rotate (90) -
 
     Aspect preserval mode is only used if both source
     and both destination sizes are specified. If source
@@ -177,7 +177,7 @@ class VideoCodec(BaseCodec):
         'src_height': int,
         'src_rotate': int,
         'filters': str,
-        'autorotate': bool, 
+        'autorotate': bool,
     }
 
     def _autorotate(self, src_rotate):
@@ -189,20 +189,20 @@ class VideoCodec(BaseCodec):
         return filters.get(src_rotate)
 
     def _extend_vf(self, optlist, value):
-        
+
         if not value:
             return optlist
-        
+
         if optlist.count('-vf'):
             current_vf = optlist[optlist.index('-vf') + 1]
-            new_vf = "{0},{1}".format(current_vf, value) # append filters to current
+            new_vf = "{0},{1}".format(current_vf, value)  # append filters to current
             optlist[optlist.index('-vf') + 1] = new_vf
         else:
-            optlist.extend(['-vf', value])   
+            optlist.extend(['-vf', value])
         return optlist
 
     def _div_by_2(self, d):
-        return d+1 if d % 2 else d
+        return d + 1 if d % 2 else d
 
     def _aspect_corrections(self, sw, sh, max_width, max_height, sizing_policy):
         if not max_width or not max_height or not sw or not sh:
@@ -217,84 +217,84 @@ class VideoCodec(BaseCodec):
         that you specified in either Max Width or Max Height without exceeding the other value."
         """
         if sizing_policy == 'Fit':
-            if float(sh/sw) == float(max_height):
-                return max_width, max_height, None  
-            elif float(sh/sw) < float(max_height): # scaling height
-                factor = float(float(max_height)/float(sh))
-                return int(sw*factor), max_height, None
+            if float(sh / sw) == float(max_height):
+                return max_width, max_height, None
+            elif float(sh / sw) < float(max_height):  # scaling height
+                factor = float(float(max_height) / float(sh))
+                return int(sw * factor), max_height, None
             else:
-                factor = float(float(max_width)/float(sw))
-                return max_width, int(sh*factor), None
+                factor = float(float(max_width) / float(sw))
+                return max_width, int(sh * factor), None
 
         """
-        Fill: FFMPEG scales the output video so it matches the value that you specified 
-        in either Max Width or Max Height and matches or exceeds the other value. Elastic Transcoder 
+        Fill: FFMPEG scales the output video so it matches the value that you specified
+        in either Max Width or Max Height and matches or exceeds the other value. Elastic Transcoder
         centers the output video and then crops it in the dimension (if any) that exceeds the maximum value.
         """
         if sizing_policy == 'Fill':
-            if float(sh/sw) == float(max_height):
+            if float(sh / sw) == float(max_height):
                 return max_width, max_height, None
-            elif float(sh/sw) < float(max_height): # scaling width
-                factor = float(float(max_width)/float(sw))
-                h0 = int(sh*factor)
+            elif float(sh / sw) < float(max_height):  # scaling width
+                factor = float(float(max_width) / float(sw))
+                h0 = int(sh * factor)
                 dh = (h0 - max_height) / 2
                 return max_width, h0, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dh)
             else:
-                factor = float(float(max_height)/float(sh))
-                w0 = int(sw*factor)   
+                factor = float(float(max_height) / float(sh))
+                w0 = int(sw * factor)
                 dw = (w0 - max_width) / 2
                 return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
 
         """
         Stretch: FFMPEG stretches the output video to match the values that you specified for Max
-        Width and Max Height. If the relative proportions of the input video and the output video are different, 
+        Width and Max Height. If the relative proportions of the input video and the output video are different,
         the output video will be distorted.
         """
         if sizing_policy == 'Stretch':
             return max_width, max_height, None
 
         """
-        Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds 
+        Keep: FFMPEG does not scale the output video. If either dimension of the input video exceeds
         the values that you specified for Max Width and Max Height, FFMPEG crops the output video.
         """
         if sizing_policy == 'Keep':
             return sw, sh, None
 
         """
-        ShrinkToFit: FFMPEG scales the output video down so that its dimensions match the values that 
-        you specified for at least one of Max Width and Max Height without exceeding either value. If you specify 
+        ShrinkToFit: FFMPEG scales the output video down so that its dimensions match the values that
+        you specified for at least one of Max Width and Max Height without exceeding either value. If you specify
         this option, Elastic Transcoder does not scale the video up.
         """
         if sizing_policy == 'ShrinkToFit':
             if sh > max_height or sw > max_width:
-                if float(sh/sw) == float(max_height):
-                    return  max_width, max_height, None
-                elif float(sh/sw) < float(max_height): # target is taller
-                    factor = float(float(max_height)/float(sh))
-                    return int(sw*factor), max_height, None
+                if float(sh / sw) == float(max_height):
+                    return max_width, max_height, None
+                elif float(sh / sw) < float(max_height):  # target is taller
+                    factor = float(float(max_height) / float(sh))
+                    return int(sw * factor), max_height, None
                 else:
-                    factor = float(float(max_width)/float(sw))
-                    return max_width, int(sh*factor), None
+                    factor = float(float(max_width) / float(sw))
+                    return max_width, int(sh * factor), None
             else:
                 return sw, sh, None
 
         """
-        ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that 
+        ShrinkToFill: FFMPEG scales the output video down so that its dimensions match the values that
         you specified for at least one of Max Width and Max Height without dropping below either value. If you specify
         this option, FFMPEG does not scale the video up.
         """
         if sizing_policy == 'ShrinkToFill':
             if sh < max_height or sw < max_width:
-                if float(sh/sw) == float(max_height):
+                if float(sh / sw) == float(max_height):
                     return max_width, max_height, None
-                elif float(sh/sw) < float(max_height): # scaling width
-                    factor = float(float(max_width)/float(sw))
-                    h0 = int(sh*factor)
+                elif float(sh / sw) < float(max_height):  # scaling width
+                    factor = float(float(max_width) / float(sw))
+                    h0 = int(sh * factor)
                     dh = (h0 - max_height) / 2
                     return max_width, h0, 'crop=%d:%d:%d:0' % (max_width, max_height, dh)
-                else: 
-                    factor = float(float(max_height)/float(sh))
-                    w0 = int(sw*factor)   
+                else:
+                    factor = float(float(max_height) / float(sh))
+                    w0 = int(sw * factor)
                     dw = (w0 - max_width) / 2
                     return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
             else:
@@ -323,15 +323,15 @@ class VideoCodec(BaseCodec):
             w = safe['max_width']
             if w < 16 or w > 4000:
                 w = None
-            elif w % 2:   
-                w +=1 
+            elif w % 2:
+                w += 1
 
         if 'max_height' in safe:
             h = safe['max_height']
             if h < 16 or h > 3000:
                 h = None
-            elif h % 2:   
-                h +=1 
+            elif h % 2:
+                h += 1
 
         sw = safe.get('src_width', None)
         sh = safe.get('src_height', None)
@@ -349,7 +349,7 @@ class VideoCodec(BaseCodec):
         safe['max_height'] = h
         safe['aspect_filters'] = filters
 
-        # swap height and width if vertical rotate 
+        # swap height and width if vertical rotate
         if safe.get('autorotate') and 'src_rotate' in safe:
             if safe['src_rotate'] in [90, 270]:
                 old_w = w
@@ -358,15 +358,15 @@ class VideoCodec(BaseCodec):
                 safe['max_height'] = h = old_w
 
         if w and h:
-            safe['aspect'] = '{0}:{1}'.format(w,h)
+            safe['aspect'] = '{0}:{1}'.format(w, h)
 
         safe = self._codec_specific_parse_options(safe)
 
         #w = safe['max_width']
         #h = safe['max_height']
         filters = safe['aspect_filters']
-        
-        # Use the most common pixel format by default. If the selected pixel format can not be selected, 
+
+        # Use the most common pixel format by default. If the selected pixel format can not be selected,
         # ffmpeg select the best pixel format supported by the encoder.
         optlist = ['-pix_fmt', 'yuv420p', '-vcodec', self.ffmpeg_codec_name]
 
@@ -375,7 +375,7 @@ class VideoCodec(BaseCodec):
         if 'bitrate' in safe:
             optlist.extend(['-vb', str(safe['bitrate']) + 'k'])  # FIXED
         if w and h:
-            optlist.extend(['-s', '{0}x{1}'.format(w,h)])
+            optlist.extend(['-s', '{0}x{1}'.format(w, h)])
             if 'aspect' in safe:
                 optlist.extend(['-aspect', '{0}:{1}'.format(w, h)])
 
@@ -453,6 +453,7 @@ class SubtitleCopyCodec(BaseCodec):
 
     def parse_options(self, opt):
         return ['-scodec', 'copy']
+
 
 # Audio Codecs
 class VorbisCodec(AudioCodec):

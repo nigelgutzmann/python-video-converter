@@ -4,7 +4,7 @@ import os
 
 from converter.avcodecs import video_codec_list, audio_codec_list, subtitle_codec_list
 from converter.formats import format_list
-from converter.ffmpeg import FFMpeg, FFMpegError, FFMpegConvertError
+from converter.ffmpeg import FFMpeg
 
 
 class ConverterError(Exception):
@@ -120,7 +120,6 @@ class Converter(object):
                 raise ConverterError('map needs to be int')
             else:
                 format_options.extend(['-map', str(m)])
-
 
         # aggregate all options
         optlist = audio_options + video_options + subtitle_options + format_options

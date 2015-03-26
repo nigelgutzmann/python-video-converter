@@ -98,6 +98,7 @@ class HLSFormat(BaseFormat):
     """
     format_name = 'hls'
     ffmpeg_format_name = 'segment'
+
     def parse_options(self, opt):
         if 'format' not in opt or opt.get('format') != self.format_name:
             raise ValueError('invalid Format format')
