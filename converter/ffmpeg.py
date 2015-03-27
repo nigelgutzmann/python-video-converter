@@ -315,6 +315,8 @@ class FFMpeg(object):
     >>> f = FFMpeg()
     """
     DEFAULT_JPEG_QUALITY = 4
+    AUDIO_PEAK_MAX = -1  # dBTP
+    AUDIO_LOUDNESS_TARGET = -16  # LUFS
 
     def __init__(self, ffmpeg_path=None, ffprobe_path=None):
         """
@@ -420,7 +422,7 @@ class FFMpeg(object):
 
         return info
 
-    def convert(self, infile, outfile, opts, timeout=10):
+    def convert(self, infile, outfile, opts, timeout=10, get_output=False):
         """
         Convert the source media (infile) according to specified options
         (a list of ffmpeg switches as strings) and save it to outfile.
@@ -444,7 +446,7 @@ class FFMpeg(object):
         if not os.path.exists(infile) and not self.is_url(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
 
-        cmds = [self.ffmpeg_path, '-i', infile]
+        cmds = [self.ffmpeg_path, '-hide_banner', '-i', infile]
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
         if timeout:
@@ -515,12 +517,77 @@ class FFMpeg(object):
             if line.startswith('Error while '):
                 raise FFMpegConvertError('Encoding error', cmd, total_output,
                                          line, pid=p.pid)
-            if not yielded:
+            if yielded:
+                if get_output:
+                    yield total_output
+            else:
                 raise FFMpegConvertError('Unknown ffmpeg error', cmd,
                                          total_output, line, pid=p.pid)
         if p.returncode != 0:
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
+
+    def analyze(self, infile, audio_level=True, interlacing=True, timeout=10):
+        """
+        Analyze the video frames to find if the video need to be deinterlaced.
+        Or/and analyze the audio to find if the audio need to be normalize
+        and by how much. Both analyses are together so FFMpeg can do both
+        analyses in the same pass.
+        """
+        if not audio_level and not interlacing:
+            raise FFMpegError('Nothing selected to analyze (audio level or interlacing).')
+
+        opts = ['-f', 'null']
+        if interlacing:
+            opts.extend(['-vf', 'idet'])
+            if not audio_level:
+                opts.append('-an')
+
+        if audio_level:
+            opts.extend(['-af', 'ebur128=peak=true:framelog=verbose'])
+            if not interlacing:
+                opts.append('-vn')
+
+        for data in self.convert(infile, '/dev/null', opts, timeout, get_output=True):
+            if isinstance(data, float):
+                yield data
+            else:
+                interlace = None
+                adjustement = None
+                if interlacing:
+                    match = re.search('Multi frame detection:\s+TFF:\s+(\d+)\s+BFF:\s+(\d+)\s+Progressive:\s+(\d+)\s+Undetermined:\s+(\d+)', data, re.UNICODE)
+                    if match is None:
+                        raise FFMpegConvertError('No interlaced data.', opts, data)
+                    tff = int(match.group(1))
+                    bff = int(match.group(2))
+                    progressive = int(match.group(3))
+                    undetermined = int(match.group(4))
+                    interlaced = tff + bff
+                    total = interlaced + progressive + undetermined
+                    if interlaced > total / 10:
+                        interlace = True
+                    else:
+                        interlace = False
+
+                if audio_level:
+                    match = re.search('Integrated loudness:\s+I:\s+(-?\d+\.\d)\s+LUFS(?s).+True peak:\s+Peak:\s+(-?\d+\.\d)\s+dBFS', data, re.UNICODE)
+                    if match is None:
+                        raise FFMpegConvertError('No audio analysis data.', opts, data)
+                    loudness = float(match.group(1))
+                    loudness_adj = self.AUDIO_LOUDNESS_TARGET - loudness
+                    if loudness_adj > 0:
+                        peak = float(match.group(2))
+                        peak_adj = self.AUDIO_PEAK_MAX - peak
+                        if peak_adj < 0:
+                            peak_adj = 0
+                        adjustement = min(peak_adj, loudness_adj)
+                    else:
+                        adjustement = loudness_adj
+                    # Don't adjust if adjustment is too small
+                    if -1 < adjustement < 1:
+                        adjustement = 0
+
+                yield interlace, adjustement
 
     def thumbnails_by_interval(self, source, output_pattern, interval=1,
                                max_width=None, max_height=None, autorotate=False,
