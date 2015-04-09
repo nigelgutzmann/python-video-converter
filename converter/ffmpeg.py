@@ -356,12 +356,11 @@ class FFMpeg(object):
             if line.startswith('Error while '):
                 raise FFMpegConvertError('Encoding error', cmd, total_output,
                                          line, pid=p.pid)
-            if yielded:
-                if get_output:
-                    yield total_output
-            else:
+            if not yielded:
                 raise FFMpegConvertError('Unknown ffmpeg error', cmd,
                                          total_output, line, pid=p.pid)
+            if get_output:
+                yield total_output
         if p.returncode != 0:
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
