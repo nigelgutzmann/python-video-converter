@@ -243,6 +243,44 @@ class Converter(object):
                                                 timeout=timeout, nice=nice):
                 yield int((100.0 * timecode) / info['format']['duration'])
 
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, timeout=10, nice=None):
+        """
+        Analyze the video frames to find if the video need to be deinterlaced.
+        Or/and analyze the audio to find if the audio need to be normalize
+        and by how much. Both analyses are together so FFMpeg can do both
+        analyses in the same pass.
+
+        :param audio_level: Set it to True to get by how much dB the audio need
+        to be normalize, defaults to True.
+        :param interlacing: Set it to True to check if the video need to be
+        deinterlaced, defaults to True.
+        :param timeout: How long should the operation be blocked in case ffmpeg
+        gets stuck and doesn't report back, defaults to 10 sec.
+        """
+        if not os.path.exists(infile) and not self.ffmpeg.is_url(infile):
+            raise ConverterError("Source file doesn't exist: " + infile)
+
+        info = self.ffmpeg.probe(infile)
+        if info is None:
+            raise ConverterError("Can't get information about source file")
+
+        if 'video' not in info and 'audio' not in info:
+            raise ConverterError('Source file has no audio or video streams')
+
+        if 'audio' not in info:
+            audio_level = False
+
+        if 'video' not in info:
+            interlacing = False
+            crop = False
+
+        if info['format']['duration'] < 0.01:
+            raise ConverterError('Zero-length media')
+        for timecode in self.ffmpeg.analyze(infile, audio_level, interlacing, crop, timeout, nice):
+            if isinstance(timecode, float):
+                yield int((100.0 * timecode) / info['format']['duration'])
+            else:
+                yield timecode
 
     def probe(self, *args, **kwargs):
         """

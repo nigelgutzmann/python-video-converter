@@ -388,52 +388,55 @@ class FFMpeg(object):
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
 
-    def analyze(self, infile, audio_level=True, interlacing=True, timeout=10):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, timeout=10, nice=None):
         """
         Analyze the video frames to find if the video need to be deinterlaced.
         Or/and analyze the audio to find if the audio need to be normalize
         and by how much. Both analyses are together so FFMpeg can do both
         analyses in the same pass.
         """
-        if not audio_level and not interlacing:
-            raise FFMpegError('Nothing selected to analyze (audio level or interlacing).')
+        if not audio_level and not interlacing and not crop:
+            raise FFMpegError('Nothing selected to analyze (audio level, '
+                              'interlacing or crop).')
 
         opts = ['-f', 'null']
-        if interlacing:
-            opts.extend(['-vf', 'idet'])
-            if not audio_level:
-                opts.append('-an')
-
         if audio_level:
             opts.extend(['-af', 'ebur128=peak=true:framelog=verbose'])
-            if not interlacing:
-                opts.append('-vn')
+        else:
+            opts.append('-an')
 
-        for data in self.convert(infile, '/dev/null', opts, timeout, get_output=True):
+        video_filters = []
+        if interlacing:
+            video_filters.append('idet')
+
+        if crop:
+            video_filters.append('cropdetect=24:16:0')
+
+        if video_filters:
+            video_filters = ','.join(video_filters)
+            opts.extend(['-vf', video_filters])
+        else:
+            opts.append('-vn')
+
+        for data in self.convert(infile, '/dev/null',
+                                 opts, timeout, nice=nice, get_output=True):
             if isinstance(data, float):
                 yield data
             else:
                 interlace = None
                 adjustement = None
-                if interlacing:
-                    match = re.search('Multi frame detection:\s+TFF:\s+(\d+)\s+BFF:\s+(\d+)\s+Progressive:\s+(\d+)\s+Undetermined:\s+(\d+)', data, re.UNICODE)
-                    if match is None:
-                        raise FFMpegConvertError('No interlaced data.', opts, data)
-                    tff = int(match.group(1))
-                    bff = int(match.group(2))
-                    progressive = int(match.group(3))
-                    undetermined = int(match.group(4))
-                    interlaced = tff + bff
-                    total = interlaced + progressive + undetermined
-                    if interlaced > total / 10:
-                        interlace = True
-                    else:
-                        interlace = False
+                crop_size = None
 
                 if audio_level:
                     match = re.search('Integrated loudness:\s+I:\s+(-?\d+\.\d)\s+LUFS(?s).+True peak:\s+Peak:\s+(-?\d+\.\d)\s+dBFS', data, re.UNICODE)
                     if match is None:
-                        raise FFMpegConvertError('No audio analysis data.', opts, data)
+                        raise FFMpegConvertError(
+                            'No audio analysis data.',
+                            opts,
+                            data
+                        )
+                    # Adjust audio volume so loudness will be close as possible
+                    # as the target but max peak will not be above AUDIO_PEAK_MAX.
                     loudness = float(match.group(1))
                     loudness_adj = self.AUDIO_LOUDNESS_TARGET - loudness
                     if loudness_adj > 0:
@@ -448,7 +451,43 @@ class FFMpeg(object):
                     if -1 < adjustement < 1:
                         adjustement = 0
 
-                yield interlace, adjustement
+                if interlacing:
+                    match = re.search('Multi frame detection:\s+TFF:\s+(\d+)\s+BFF:\s+(\d+)\s+Progressive:\s+(\d+)\s+Undetermined:\s+(\d+)', data, re.UNICODE)
+                    if match is None:
+                        raise FFMpegConvertError(
+                            'No interlaced data.',
+                            opts,
+                            data
+                        )
+                    tff = int(match.group(1))
+                    bff = int(match.group(2))
+                    progressive = int(match.group(3))
+                    undetermined = int(match.group(4))
+                    interlaced = tff + bff
+                    total = interlaced + progressive + undetermined
+                    # If more then 10% of frames are detected as interlaced,
+                    # assume video is at least partly interlaced frames.
+                    if interlaced > total / 10:
+                        interlace = True
+                    else:
+                        interlace = False
+
+                if crop:
+                    crop_line = ''
+                    for line in reversed(data.split('\n')):
+                        if 'cropdetect' in line:
+                            crop_line = line
+                            break
+                    match = re.search('crop=(\d+:\d+:\d+:\d)', crop_line, re.UNICODE)
+                    if match is None:
+                        raise FFMpegConvertError(
+                            'No crop data.',
+                            opts,
+                            data
+                        )
+                    crop_size = match.group(1)
+
+                yield adjustement, interlace, crop_size
 
     def thumbnails_by_interval(self, source, output_pattern, interval=1,
                                max_width=None, max_height=None, autorotate=False,
