@@ -480,16 +480,15 @@ class FFMpeg(object):
 
         cmds.extend(['-i', source, '-y', '-an'])
         cmds.extend(['-f', 'image2'])
-        cmds.extend(['-s', "{}x{}".format(w,h)])
+        cmds.extend(['-s', "{0}x{1}".format(w, h)])
         cmds.extend(['-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY)])
 
         if filters:
-            cmds.extend(['-vf', 'fps=fps=1/{},{}'.format(interval, filters)])
+            cmds.extend(['-vf', 'fps=fps=1/{0},{1}'.format(interval, filters)])
         else:
-            cmds.extend(['-vf', 'fps=fps=1/{}'.format(interval)])
+            cmds.extend(['-vf', 'fps=fps=1/{0}'.format(interval)])
 
         cmds.extend([output_pattern.format(count="%05d")])
-
 
         p = self._spawn(cmds)
         _, stderr_data = p.communicate()
