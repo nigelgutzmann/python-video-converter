@@ -54,8 +54,22 @@ class AudioCodec(BaseCodec):
         'codec': str,
         'channels': int,
         'bitrate': int,
-        'samplerate': int
+        'samplerate': int,
+        'filters': str
     }
+
+    def _extend_af(self, optlist, value):
+
+        if not value:
+            return optlist
+
+        if optlist.count('-af'):
+            current_af = optlist[optlist.index('-af') + 1]
+            new_af = "{0},{1}".format(current_af, value)  # append filters to current
+            optlist[optlist.index('-af') + 1] = new_af
+        else:
+            optlist.extend(['-af', value])
+        return optlist
 
     def parse_options(self, opt):
         super(AudioCodec, self).parse_options(opt)
@@ -86,6 +100,10 @@ class AudioCodec(BaseCodec):
             optlist.extend(['-ab', str(safe['bitrate']) + 'k'])
         if 'samplerate' in safe:
             optlist.extend(['-ar', str(safe['samplerate'])])
+        if 'volume' in safe:
+            optlist.extend(['-af', 'volume={0:.1f}dB'.format(safe['volume'])])
+        if 'filters' in safe:
+            optlist = self._extend_va(optlist, safe['filters'])
 
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
@@ -142,8 +160,8 @@ class VideoCodec(BaseCodec):
     Base video codec class handles general video options. Possible
     parameters are:
       * codec (string) - video codec name
-      * bitrate (string) - stream bitrate
-      * fps (integer) - frames per second
+      * bitrate (float) - stream bitrate
+      * fps (float) - frames per second
       * max_width (integer) - video width
       * max_height (integer) - video height
       * filters (string) - filters (flip, rotate, etc)
@@ -168,8 +186,8 @@ class VideoCodec(BaseCodec):
 
     encoder_options = {
         'codec': str,
-        'bitrate': int,
-        'fps': int,
+        'bitrate': float,
+        'fps': float,
         'max_width': int,
         'max_height': int,
         'sizing_policy': str,
@@ -178,6 +196,7 @@ class VideoCodec(BaseCodec):
         'src_rotate': int,
         'filters': str,
         'autorotate': bool,
+        'bufsize': int,
     }
 
     def _autorotate(self, src_rotate):
@@ -314,8 +333,13 @@ class VideoCodec(BaseCodec):
 
         if 'bitrate' in safe:
             br = safe['bitrate']
-            if br < 16 or br > 15000:
+            if br < 0.1 or br > 200:
                 del safe['bitrate']
+
+        if 'bufsize' in safe:
+            bufsize = safe['bufsize']
+            if bufsize < 1 or bufsize > 10000:
+                del safe['bufsize']
 
         w = h = None
 
@@ -371,9 +395,11 @@ class VideoCodec(BaseCodec):
         optlist = ['-pix_fmt', 'yuv420p', '-vcodec', self.ffmpeg_codec_name]
 
         if 'fps' in safe:
-            optlist.extend(['-r', str(safe['fps'])])
+            optlist.extend(['-r', str(round(safe['fps'], 2))])
         if 'bitrate' in safe:
-            optlist.extend(['-vb', str(safe['bitrate']) + 'k'])  # FIXED
+            optlist.extend(['-vb', str(safe['bitrate']) + 'M'])
+        if 'bufsize' in safe:
+            optlist.extend(['-bufsize', str(safe['bufsize']) + 'k'])
         if w and h:
             optlist.extend(['-s', '{0}x{1}'.format(w, h)])
             if 'aspect' in safe:
@@ -584,7 +610,7 @@ class H264Codec(VideoCodec):
         if 'preset' in safe:
             optlist.extend(['-preset', safe['preset']])
         if 'quality' in safe:
-            optlist.extend(['-crf', safe['quality']])
+            optlist.extend(['-crf', str(safe['quality'])])
         if 'profile' in safe:
             optlist.extend(['-profile', safe['profile']])
         if 'tune' in safe:
