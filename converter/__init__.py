@@ -160,7 +160,7 @@ class Converter(object):
 
         return optlist
 
-    def convert(self, infile, outfile, options, twopass=False, timeout=10):
+    def convert(self, infile, outfile, options, twopass=False, timeout=10, nice=None):
         """
         Convert media file (infile) according to specified options, and
         save it to outfile. For two-pass encoding, specify the pass (1 or 2)

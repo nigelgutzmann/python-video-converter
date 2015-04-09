@@ -275,7 +275,7 @@ class FFMpeg(object):
 
         return info
 
-    def convert(self, infile, outfile, opts, timeout=10, get_output=False):
+    def convert(self, infile, outfile, opts, timeout=10, nice=None, get_output=False):
         """
         Convert the source media (infile) according to specified options
         (a list of ffmpeg switches as strings) and save it to outfile.
@@ -302,6 +302,13 @@ class FFMpeg(object):
         infile = self._check_vob_name(infile)
 
         cmds = [self.ffmpeg_path, '-hide_banner', '-i', infile]
+
+        if nice is not None:
+            if 0 < nice < 20:
+                cmds = ['nice', '-n', str(nice)] + cmds
+            else:
+                raise FFMpegError("Invalid nice value: {0}".format(nice))
+
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
         if timeout:
