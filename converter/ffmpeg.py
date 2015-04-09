@@ -101,6 +101,19 @@ class FFMpeg(object):
         return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
                      close_fds=True)
 
+    def _check_vob_name(self, source):
+        match = re.search('/VIDEO_TS/(VTS_\d\d_)\d(.VOB)$', source, re.IGNORECASE)
+        if match is None:
+            return source
+        base_name = match.group(1)
+        extension = match.group(2)
+        items = os.listdir(os.path.dirname(source))
+        items.sort()
+        vobs = (item for item in items
+                if re.match('{0}[1-9]{1}'.format(base_name, extension), item))
+        vobs = '\\|'.join(vobs)
+        return 'concat:{0}'.format(vobs)
+
     def is_url(self, url):
         #: Accept objects that have string representations.
         try:
@@ -152,6 +165,7 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
+        fname = self._check_vob_name(fname)
 
         p = self._spawn([self.ffprobe_path, '-v', 'quiet', '-print_format',
                         'json', '-show_format', '-show_streams', fname])
@@ -284,6 +298,8 @@ class FFMpeg(object):
         """
         if not os.path.exists(infile) and not self.is_url(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
+
+        infile = self._check_vob_name(infile)
 
         cmds = [self.ffmpeg_path, '-hide_banner', '-i', infile]
         cmds.extend(opts)
