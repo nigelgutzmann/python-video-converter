@@ -591,7 +591,7 @@ class FFMpeg(object):
             max_width = int(aspect * max_height)
 
         if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
-            print "invalid option {}".format(sizing_policy)
+            print "invalid option {0}".format(sizing_policy)
             return sw, sh, None
 
         """
@@ -620,12 +620,12 @@ class FFMpeg(object):
                 factor = float(float(max_width) / float(sw))
                 h0 = int(sh * factor)
                 dh = (h0 - max_height) / 2
-                return max_width, h0, 'crop={}:{}:{}:0'.format(max_width, max_height, dh)
+                return max_width, h0, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dh)
             else:
                 factor = float(float(max_height) / float(sh))
                 w0 = int(sw * factor)
                 dw = (w0 - max_width) / 2
-                return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+                return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
 
         """
         Stretch: FFMPEG stretches the output video to match the values that you specified for Max
@@ -678,7 +678,7 @@ class FFMpeg(object):
                     factor = float(float(max_height) / float(sh))
                     w0 = int(sw * factor)
                     dw = (w0 - max_width) / 2
-                    return w0, max_height, 'crop={}:{}:{}:0'.format(max_width, max_height, dw)
+                    return w0, max_height, 'crop={0}:{1}:{2}:0'.format(max_width, max_height, dw)
             else:
                 return int(sw*factor), max_height, None
 
