@@ -58,7 +58,21 @@ class FlvFormat(BaseFormat):
     ffmpeg_format_name = 'flv'
 
 
-class MovFormat(BaseFormat):
+class BaseMovMp4Format(BaseFormat):
+    """
+    Base MOV/MP4 format class.
+
+    Supported formats are: mov, mp4
+    """
+
+    def parse_options(self, opt):
+        opt_list = super(BaseMovMp4Format, self).parse_options(opt)
+        if opt.get('faststart'):
+            opt_list = ['-movflags', 'faststart'] + opt_list
+        return opt_list
+
+
+class MovFormat(BaseMovMp4Format):
     """
     Mov container format, used mostly with H.264 video
     content, often for mobile platforms.
@@ -67,7 +81,7 @@ class MovFormat(BaseFormat):
     ffmpeg_format_name = 'mov'
 
 
-class Mp4Format(BaseFormat):
+class Mp4Format(BaseMovMp4Format):
     """
     Mp4 container format, the default Format for H.264
     video content.
