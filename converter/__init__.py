@@ -274,3 +274,14 @@ class Converter(object):
         of converter.FFMpeg.thumbnails() for details.
         """
         return self.ffmpeg.thumbnails_by_interval(*args, **kwargs)
+
+
+def is_faststart(source):
+    """
+    Check if the given file is 'faststart' or not.
+    """
+    with open(source) as source:
+        head = source.read(64)
+    if 'moov' in head:
+        return True
+    return False
