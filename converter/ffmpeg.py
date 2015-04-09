@@ -8,6 +8,7 @@ from urllib3.util import parse_url
 from subprocess import Popen, PIPE
 import logging
 import locale
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -47,264 +48,6 @@ class FFMpegConvertError(Exception):
 
     def __str__(self):
         return self.__repr__()
-
-
-class MediaFormatInfo(object):
-    """
-    Describes the media container format. The attributes are:
-      * format - format (short) name (eg. "ogg")
-      * fullname - format full (descriptive) name
-      * bitrate - total bitrate (bps)
-      * duration - media duration in seconds
-      * filesize - file size
-    """
-
-    def __init__(self):
-        self.format = None
-        self.fullname = None
-        self.bitrate = None
-        self.duration = None
-        self.filesize = None
-
-    def parse_ffprobe(self, key, val):
-        """
-        Parse raw ffprobe output (key=value).
-        """
-        if key == 'format_name':
-            self.format = val
-        elif key == 'format_long_name':
-            self.fullname = val
-        elif key == 'bit_rate':
-            self.bitrate = MediaStreamInfo.parse_float(val, None)
-        elif key == 'duration':
-            self.duration = MediaStreamInfo.parse_float(val, None)
-        elif key == 'size':
-            self.size = MediaStreamInfo.parse_float(val, None)
-
-    def __repr__(self):
-        if self.duration is None:
-            return 'MediaFormatInfo(format=%s)' % self.format
-        return 'MediaFormatInfo(format=%s, duration=%.2f)' % (self.format,
-                                                              self.duration)
-
-
-class MediaStreamInfo(object):
-    """
-    Describes one stream inside a media file. The general
-    attributes are:
-      * index - stream index inside the container (0-based)
-      * type - stream type, either 'audio' or 'video'
-      * codec - codec (short) name (e.g "vorbis", "theora")
-      * codec_desc - codec full (descriptive) name
-      * duration - stream duration in seconds
-      * metadata - optional metadata associated with a video or audio stream
-      * bitrate - stream bitrate in bytes/second
-      * attached_pic - (0, 1 or None) is stream a poster image? (e.g. in mp3)
-    Video-specific attributes are:
-      * video_width - width of video in pixels
-      * video_height - height of video in pixels
-      * video_fps - average frames per second
-    Audio-specific attributes are:
-      * audio_channels - the number of channels in the stream
-      * audio_samplerate - sample rate (Hz)
-    """
-
-    def __init__(self):
-        self.index = None
-        self.type = None
-        self.codec = None
-        self.codec_desc = None
-        self.duration = None
-        self.bitrate = None
-        self.video_width = None
-        self.video_height = None
-        self.video_fps = None
-        self.audio_channels = None
-        self.audio_samplerate = None
-        self.attached_pic = None
-        self.sub_forced = None
-        self.sub_default = None
-        self.metadata = {}
-
-    @staticmethod
-    def parse_float(val, default=0.0):
-        try:
-            return float(val)
-        except:
-            return default
-
-    @staticmethod
-    def parse_int(val, default=0):
-        try:
-            return int(val)
-        except:
-            return default
-
-    def parse_ffprobe(self, key, val):
-        """
-        Parse raw ffprobe output (key=value).
-        """
-
-        if key == 'index':
-            self.index = self.parse_int(val)
-        elif key == 'codec_type':
-            self.type = val
-        elif key == 'codec_name':
-            self.codec = val
-        elif key == 'codec_long_name':
-            self.codec_desc = val
-        elif key == 'duration':
-            self.duration = self.parse_float(val)
-        elif key == 'bit_rate':
-            self.bitrate = self.parse_int(val, None)
-        elif key == 'width':
-            self.video_width = self.parse_int(val)
-        elif key == 'height':
-            self.video_height = self.parse_int(val)
-        elif key == 'channels':
-            self.audio_channels = self.parse_int(val)
-        elif key == 'sample_rate':
-            self.audio_samplerate = self.parse_float(val)
-        elif key == 'DISPOSITION:attached_pic':
-            self.attached_pic = self.parse_int(val)
-
-        if key.startswith('TAG:'):
-            key = key.split('TAG:')[1]
-            value = val
-            self.metadata[key] = value
-
-        if self.type == 'audio':
-            if key == 'avg_frame_rate':
-                if '/' in val:
-                    n, d = val.split('/')
-                    n = self.parse_float(n)
-                    d = self.parse_float(d)
-                    if n > 0.0 and d > 0.0:
-                        self.video_fps = float(n) / float(d)
-                elif '.' in val:
-                    self.video_fps = self.parse_float(val)
-
-        if self.type == 'video':
-            if key == 'r_frame_rate':
-                if '/' in val:
-                    n, d = val.split('/')
-                    n = self.parse_float(n)
-                    d = self.parse_float(d)
-                    if n > 0.0 and d > 0.0:
-                        self.video_fps = float(n) / float(d)
-                elif '.' in val:
-                    self.video_fps = self.parse_float(val)
-
-        if self.type == 'subtitle':
-            if key == 'disposition:forced':
-                self.sub_forced = self.parse_int(val)
-            if key == 'disposition:default':
-                self.sub_default = self.parse_int(val)
-
-    def __repr__(self):
-        d = ''
-        metadata_str = ['%s=%s' % (key, value) for key, value
-                        in self.metadata.items()]
-        metadata_str = ', '.join(metadata_str)
-
-        if self.type == 'audio':
-            d = 'type=%s, codec=%s, channels=%d, rate=%.0f' % (self.type,
-                self.codec, self.audio_channels, self.audio_samplerate)
-        elif self.type == 'video':
-            d = 'type=%s, codec=%s, width=%d, height=%d, fps=%.1f' % (
-                self.type, self.codec, self.video_width, self.video_height,
-                self.video_fps)
-        elif self.type == 'subtitle':
-            d = 'type=%s, codec=%s' % (self.type, self.codec)
-        if self.bitrate is not None:
-            d += ', bitrate=%d' % self.bitrate
-
-        if self.metadata:
-            value = 'MediaStreamInfo(%s, %s)' % (d, metadata_str)
-        else:
-            value = 'MediaStreamInfo(%s)' % d
-
-        if isinstance(value, unicode):
-            value = value.encode(console_encoding, 'replace')
-
-        return value
-
-
-class MediaInfo(object):
-    """
-    Information about media object, as parsed by ffprobe.
-    The attributes are:
-      * format - a MediaFormatInfo object
-      * streams - a list of MediaStreamInfo objects
-    """
-
-    def __init__(self, posters_as_video=True):
-        """
-        :param posters_as_video: Take poster images (mainly for audio files) as
-            A video stream, defaults to True
-        """
-        self.format = MediaFormatInfo()
-        self.posters_as_video = posters_as_video
-        self.streams = []
-
-    def parse_ffprobe(self, raw):
-        """
-        Parse raw ffprobe output.
-        """
-        in_format = False
-        current_stream = None
-
-        for line in raw.split('\n'):
-            line = line.strip()
-            if line == '':
-                continue
-            elif line == '[STREAM]':
-                current_stream = MediaStreamInfo()
-            elif line == '[/STREAM]':
-                if current_stream.type:
-                    self.streams.append(current_stream)
-                current_stream = None
-            elif line == '[FORMAT]':
-                in_format = True
-            elif line == '[/FORMAT]':
-                in_format = False
-            elif '=' in line:
-                k, v = line.split('=', 1)
-                k = k.strip()
-                v = v.strip()
-                if current_stream:
-                    current_stream.parse_ffprobe(k, v)
-                elif in_format:
-                    self.format.parse_ffprobe(k, v)
-
-    def __repr__(self):
-        return 'MediaInfo(format=%s, streams=%s)' % (repr(self.format),
-                                                     repr(self.streams))
-
-    @property
-    def video(self):
-        """
-        First video stream, or None if there are no video streams.
-        """
-        for s in self.streams:
-            if s.type == 'video' and (self.posters_as_video
-                                      or not s.attached_pic):
-                return s
-        return None
-
-    @property
-    def posters(self):
-        return [s for s in self.streams if s.attached_pic]
-
-    @property
-    def audio(self):
-        """
-        First audio stream, or None if there are no audio streams.
-        """
-        for s in self.streams:
-            if s.type == 'audio':
-                return s
-        return None
 
 
 class FFMpeg(object):
@@ -389,19 +132,19 @@ class FFMpeg(object):
         not a valid media file.
 
         >>> info = FFMpeg().probe('test1.ogg')
-        >>> info.format
+        >>> info['container']
         'ogg'
-        >>> info.duration
+        >>> info['duration']
         33.00
-        >>> info.video.codec
+        >>> info['video']['codec']
         'theora'
-        >>> info.video.width
+        >>> info['video']['width']
         720
-        >>> info.video.height
+        >>> info['video']['height']
         400
-        >>> info.audio.codec
+        >>> info['audio']['codec']
         'vorbis'
-        >>> info.audio.channels
+        >>> info['audio']['channels']
         2
         :param posters_as_video: Take poster images (mainly for audio files) as
             A video stream, defaults to True
@@ -409,16 +152,112 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
-        info = MediaInfo(posters_as_video)
 
-        p = self._spawn([self.ffprobe_path,
-                         '-show_format', '-show_streams', fname])
+        p = self._spawn([self.ffprobe_path, '-v', 'quiet', '-print_format',
+                        'json', '-show_format', '-show_streams', fname])
         stdout_data, _ = p.communicate()
         stdout_data = stdout_data.decode(console_encoding, 'ignore')
-        info.parse_ffprobe(stdout_data)
+        info = json.loads(stdout_data)
 
-        if not info.format.format and len(info.streams) == 0:
-            return None
+        info['posters'] = []
+        for stream in info['streams']:
+            attached_pic = stream['disposition'].get('attached_pic')
+            if stream['codec_type'] not in info:
+                info[stream['codec_type'] + 's'] = []
+                if (stream['codec_type'] != 'video'
+                        or (posters_as_video or not attached_pic)):
+                    info[stream['codec_type']] = stream
+            info[stream['codec_type'] + 's'].append(stream)
+            if attached_pic:
+                info['posters'].append(stream)
+
+        def de_under(key, value, branch):
+            branch[key.replace('_', '')] = value
+
+        def lower(key, value, branch):
+            branch[key] = value.lower()
+
+        def container(key, value, branch):
+            info['container'] = value.lower().split(',')
+
+        def extension(key, value, branch):
+            info['extension'] = os.path.splitext(value)[1][1:].lower()
+
+        def codec(key, value, branch):
+            if 'aac' in value:
+                value = 'aac'
+            branch['codec'] = value.lower()
+
+        def bitrate_in_kbps(key, value, branch):
+            branch['bitrate'] = round(value / 1000.0)
+
+        def bitrate_in_mbps(key, value, branch):
+            branch['bitrate'] = round(value / 1000.0 / 1000, 1)
+
+        def fps(key, value, branch):
+            branch['fps'] = round(value, 2)
+
+        def level(key, value, branch):
+            branch[key] = round(value / 10.0, 1)
+
+        FIELD_MAPPING = {
+            'format': {
+                'format_name': container,
+                'filename': extension,
+                'bit_rate': bitrate_in_mbps,
+            },
+            'audios': {
+                'codec_name': codec,
+                'sample_rate': de_under,
+                'bit_rate': bitrate_in_kbps,
+            },
+            'videos': {
+                'codec_name': codec,
+                'avg_frame_rate': fps,
+                'bit_rate': bitrate_in_mbps,
+                'profile': lower,
+                'level': level,
+            }
+        }
+
+        def clean_info(branch, parent=None):
+            if parent is None:
+                mapping = FIELD_MAPPING
+            else:
+                mapping = FIELD_MAPPING.get(parent, {})
+
+            for key, value in branch.items():
+                if key in ('streams', 'audio', 'video'):
+                    continue
+
+                if isinstance(value, dict):
+                    clean_info(value, key)
+                    continue
+
+                if isinstance(value, list):
+                    for item in value:
+                        clean_info(item, key)
+                    continue
+
+                if isinstance(value, basestring):
+                    try:
+                        if '/' in value:
+                            n, d = value.split('/', 1)
+                            value = float(n) / float(d)
+                        elif '.' in value:
+                            value = float(value)
+                        else:
+                            value = int(value)
+                    except ZeroDivisionError:
+                        value = 0
+                    except ValueError:
+                        value = value.strip()
+                    branch[key] = value
+
+                if key in mapping:
+                    mapping[key](key, value, branch)
+
+        clean_info(info)
 
         return info
 
@@ -596,31 +435,32 @@ class FFMpeg(object):
         Create one or more thumbnails of video by a specified interval.
         """
         info = self.probe(source)
-        video_streams = filter(lambda x: x.type == 'video', info.streams)
-        if not video_streams:
+        if 'video' not in info:
             raise ValueError("Video stream not found.")
-        else:
-            video_stream = video_streams[0]
 
-        src_width = video_stream.video_width
-        src_height = video_stream.video_height
-        w, h, filters = self._aspect_corrections(src_width, src_height, max_width, max_height, sizing_policy)
+        video = info['video']
+
+        src_width = video['video_width']
+        src_height = video['video_height']
+        w, h, filters = self._aspect_corrections(src_width, src_height,
+                                                 max_width, max_height,
+                                                 sizing_policy)
         w = self._div_by_2(w)
         h = self._div_by_2(h)
 
-        if autorotate and 'rotate' in video_stream.metadata:
+        if autorotate and 'rotate' in video['tags']:
             rotate_filter = {
                 90: "transpose=1",
                 180: "transpose=2,transpose=2",
                 270: "transpose=2"
             }
-            raw_rotate = video_stream.metadata.get('rotate')
+            raw_rotate = video['tags'].get('rotate')
             if raw_rotate and int(raw_rotate) in rotate_filter.keys():
                 src_rotate = int(raw_rotate)
                 # apply filter
                 filters = '{0}{2}{1}'.format(filters or '',
-                                                rotate_filter.get(src_rotate) or '' ,
-                                                ',' if filters and rotate_filter.get(src_rotate) else '')
+                                             rotate_filter.get(src_rotate) or '',
+                                             ',' if filters and rotate_filter.get(src_rotate) else '')
                 # swap height and width if vertical rotation
                 if src_rotate in [90, 270]:
                     old_w = w

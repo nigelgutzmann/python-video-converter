@@ -184,35 +184,36 @@ class Converter(object):
         if info is None:
             raise ConverterError("Can't get information about source file")
 
-        if not info.video and not info.audio:
+        if 'video' not in info and 'audio' not in info:
             raise ConverterError('Source file has no audio or video streams')
 
-        if info.video and 'video' in options:
+        if 'video' in info and 'video' in options:
             options = options.copy()
             v = options['video'] = options['video'].copy()
-            v['src_width'] = info.video.video_width
-            v['src_height'] = info.video.video_height
-            if 'rotate' in info.video.metadata:
-                v['src_rotate'] = info.video.metadata['rotate']
+            v['src_width'] = info['video']['width']
+            v['src_height'] = info['video']['height']
+            if 'rotate' in info['video']['tags']:
+                v['src_rotate'] = info['video']['tags']['rotate']
 
-        if info.format.duration < 0.01:
+        if info['format']['duration'] < 0.01:
             raise ConverterError('Zero-length media')
 
         if twopass:
             optlist1 = self.parse_options(options, 1)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist1,
-                                                timeout=timeout):
-                yield int((50.0 * timecode) / info.format.duration)
+                                                timeout=timeout, nice=nice):
+                yield int((50.0 * timecode) / info['format']['duration'])
 
             optlist2 = self.parse_options(options, 2)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist2,
-                                                timeout=timeout):
-                yield int(50.0 + (50.0 * timecode) / info.format.duration)
+                                                timeout=timeout, nice=nice):
+                yield int(50.0 + (50.0 * timecode) / info['format']['duration'])
         else:
             optlist = self.parse_options(options, twopass)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist,
-                                                timeout=timeout):
-                yield int((100.0 * timecode) / info.format.duration)
+                                                timeout=timeout, nice=nice):
+                yield int((100.0 * timecode) / info['format']['duration'])
+
 
     def probe(self, *args, **kwargs):
         """
