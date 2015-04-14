@@ -561,7 +561,7 @@ class FFMpeg(object):
     def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY):
         """
         Create a thumbnal of media file, and store it to outfile
-        @param time: time point (in seconds) (float or int)
+        @param time: time point in seconds (float or int) or in HH:MM:SS format.
         @param size: Size, if specified, is WxH of the desired thumbnail.
             If not specified, the video resolution is used.
         @param quality: quality of jpeg file in range 2(best)-31(worst)

@@ -5,7 +5,7 @@ import re
 
 from converter.avcodecs import video_codec_list, audio_codec_list, subtitle_codec_list
 from converter.formats import format_list
-from converter.ffmpeg import FFMpeg
+from converter.ffmpeg import FFMpeg, parse_time
 
 
 class ConverterError(Exception):
@@ -123,32 +123,12 @@ class Converter(object):
                 format_options.extend(['-map', str(m)])
 
         if 'start' in opt:
-            start = None
-            try:
-                start = float(opt['start'])
-            except ValueError:
-                match = re.search('([0-2]?\d):([0-5]?\d):([0-5]?\d)', opt['start'])
-                if match:
-                    start = '{0:02d}:{1:02d}:{2:02d}'.format(*(int(i) for i in match.groups()))
-
-            if start is None:
-                raise ConverterError("Invalid 'start'. Should be in seconds or or HH:MM:SS format.")
-
-            format_options.extend(['-ss', str(start)])
+            start = parse_time(opt['start'])
+            format_options.extend(['-ss', start])
 
         if 'duration' in opt:
-            duration = None
-            try:
-                duration = float(opt['duration'])
-            except ValueError:
-                match = re.search('([0-2]?\d):([0-5]?\d):([0-5]?\d)', opt['duration'])
-                if match:
-                    duration = '{0:02d}:{1:02d}:{2:02d}'.format(*(int(i) for i in match.groups()))
-
-            if duration is None:
-                raise ConverterError("Invalid 'duration'. Should be in seconds or or HH:MM:SS format.")
-
-            format_options.extend(['-t', str(duration)])
+            duration = parse_time(opt['duration'])
+            format_options.extend(['-t', duration])
 
         # aggregate all options
         optlist = audio_options + video_options + subtitle_options + format_options
