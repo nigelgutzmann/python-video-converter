@@ -223,7 +223,7 @@ class Converter(object):
                                                 timeout=timeout, nice=nice):
                 yield int((100.0 * timecode) / info['format']['duration'])
 
-    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, timeout=10, nice=None):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, timeout=10, nice=None):
         """
         Analyze the video frames to find if the video need to be deinterlaced.
         Or/and analyze the audio to find if the audio need to be normalize
@@ -256,7 +256,7 @@ class Converter(object):
 
         if info['format']['duration'] < 0.01:
             raise ConverterError('Zero-length media')
-        for timecode in self.ffmpeg.analyze(infile, audio_level, interlacing, crop, timeout, nice):
+        for timecode in self.ffmpeg.analyze(infile, audio_level, interlacing, crop, start, duration, timeout, nice):
             if isinstance(timecode, float):
                 yield int((100.0 * timecode) / info['format']['duration'])
             else:

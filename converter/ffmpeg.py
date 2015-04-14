@@ -388,12 +388,13 @@ class FFMpeg(object):
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
 
-    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, timeout=10, nice=None):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, timeout=10, nice=None):
         """
-        Analyze the video frames to find if the video need to be deinterlaced.
-        Or/and analyze the audio to find if the audio need to be normalize
-        and by how much. Both analyses are together so FFMpeg can do both
-        analyses in the same pass.
+        Analyze the video frames to find if the video need to be deinterlaced
+        and/or crop to remove black strips.
+        Analyze the audio to find if the audio need to be normalize
+        and by how much. All analyses are together so FFMpeg can do them
+        in the same pass.
         """
         if not audio_level and not interlacing and not crop:
             raise FFMpegError('Nothing selected to analyze (audio level, '
@@ -417,6 +418,14 @@ class FFMpeg(object):
             opts.extend(['-vf', video_filters])
         else:
             opts.append('-vn')
+
+        if start:
+            start = parse_time(start)
+            opts.extend(['-ss', start])
+
+        if duration:
+            duration = parse_time(duration)
+            opts.extend(['-t', duration])
 
         for data in self.convert(infile, '/dev/null',
                                  opts, timeout, nice=nice, get_output=True):
