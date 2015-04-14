@@ -194,6 +194,7 @@ class VideoCodec(BaseCodec):
         'src_width': int,
         'src_height': int,
         'src_rotate': int,
+        'crop': str,
         'filters': str,
         'autorotate': bool,
         'bufsize': int,
@@ -357,8 +358,26 @@ class VideoCodec(BaseCodec):
             elif h % 2:
                 h += 1
 
-        sw = safe.get('src_width', None)
-        sh = safe.get('src_height', None)
+        crop_width, crop_height = None, None
+
+        if 'crop' in safe:
+            try:
+                crop_width, crop_height, _, _ = safe['crop'].split(':')
+                crop_width, crop_height = int(crop_width), int(crop_height)
+            except:
+                del safe['crop']
+            else:
+                if crop_width < 16 or crop_width > 3000:
+                    crop_width = None
+                if crop_height < 16 or crop_height > 3000:
+                    crop_height = None
+
+        if crop_width and crop_height:
+            sw = crop_width
+            sh = crop_height
+        else:
+            sw = safe.get('src_width', None)
+            sh = safe.get('src_height', None)
 
         sizing_policy = 'Keep'
         if 'sizing_policy' in safe:
@@ -405,8 +424,11 @@ class VideoCodec(BaseCodec):
             if 'aspect' in safe:
                 optlist.extend(['-aspect', '{0}:{1}'.format(w, h)])
 
+        if safe.get('crop'):
+            optlist = self._extend_vf('crop={0}'.format(safe['crop']))
+
         if filters:
-            optlist.extend(['-vf', filters])
+            optlist = self._extend_vf(filters)
 
         if safe.get('autorotate', False) and 'src_rotate' in safe:
             rotate_filter = self._autorotate(safe['src_rotate'])
