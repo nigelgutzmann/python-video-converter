@@ -704,7 +704,7 @@ class FFMpeg(object):
 
             cmds.extend([
                 '-f', 'image2', '-vframes', '1',
-                '-ss', str(thumb[0]), thumb[1],
+                '-ss', parse_time(thumb[0]), thumb[1],
                 '-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY if len(thumb) < 4 else str(thumb[3])),
             ])
 
@@ -715,3 +715,14 @@ class FFMpeg(object):
         stderr_data.decode(console_encoding, "ignore")
         if any(not os.path.exists(option[1]) for option in option_list):
             raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
+
+
+def parse_time(time):
+    try:
+        return str(float(time))
+    except ValueError:
+        match = re.search('([0-2]?\d):([0-5]?\d):([0-5]?\d)', time)
+        if match:
+            return '{0:02d}:{1:02d}:{2:02d}'.format(*(int(i) for i in match.groups()))
+
+    raise ValueError("Invalid 'time'. Should be in seconds or HH:MM:SS format.")
