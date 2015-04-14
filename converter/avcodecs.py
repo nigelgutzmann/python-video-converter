@@ -103,7 +103,7 @@ class AudioCodec(BaseCodec):
         if 'volume' in safe:
             optlist.extend(['-af', 'volume={0:.1f}dB'.format(safe['volume'])])
         if 'filters' in safe:
-            optlist = self._extend_va(optlist, safe['filters'])
+            optlist = self._extend_af(optlist, safe['filters'])
 
         optlist.extend(self._codec_specific_produce_ffmpeg_list(safe))
         return optlist
