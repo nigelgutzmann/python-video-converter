@@ -625,6 +625,12 @@ class H264Codec(VideoCodec):
         'max_reference_frames': int,  # reference frames
         'max_rate': str,
         'max_frames_between_keyframes': int,
+        'qmin': int,
+        'qcomp': float,
+        'keyint_min': int,
+        'subq': int,
+        'b-pyramid': int,
+        'trellis': int,
     })
 
     def _codec_specific_produce_ffmpeg_list(self, safe):
@@ -645,6 +651,18 @@ class H264Codec(VideoCodec):
             optlist.extend(['-maxrate', str(safe['max_rate'])])
         if 'max_frames_between_keyframes' in safe:
             optlist.extend(['-g', str(safe['max_frames_between_keyframes'])])
+        if 'qmin' in safe:
+            optlist.extend(['-qmin', str(safe['qmin'])])
+        if 'qcomp' in safe:
+            optlist.extend(['-qcomp', str(safe['qcomp'])])
+        if 'keyint_min' in safe:
+            optlist.extend(['-keyint_min', str(safe['keyint_min'])])
+        if 'subq' in safe:
+            optlist.extend(['-subq', str(safe['subq'])])
+        if 'b-pyramid' in safe:
+            optlist.extend(['-b-pyramid', str(safe['b-pyramid'])])
+        if 'trellis' in safe:
+            optlist.extend(['-trellis', str(safe['trellis'])])
 
         return optlist
 
