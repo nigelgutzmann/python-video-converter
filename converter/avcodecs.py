@@ -425,7 +425,7 @@ class VideoCodec(BaseCodec):
                 optlist.extend(['-aspect', '{0}:{1}'.format(w, h)])
 
         if safe.get('crop'):
-            optlist = self._extend_vf('crop={0}'.format(safe['crop']))
+            optlist = self._extend_vf(optlist, 'crop={0}'.format(safe['crop']))
 
         if filters:
             optlist = self._extend_vf(filters)
