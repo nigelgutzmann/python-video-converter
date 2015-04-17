@@ -201,7 +201,7 @@ class Converter(object):
             v = options['video'] = options['video'].copy()
             v['src_width'] = info['video']['width']
             v['src_height'] = info['video']['height']
-            if 'rotate' in info['video']['tags']:
+            if 'tags' in info['video'] and 'rotate' in info['video']['tags']:
                 v['src_rotate'] = info['video']['tags']['rotate']
 
         if info['format']['duration'] < 0.01:
