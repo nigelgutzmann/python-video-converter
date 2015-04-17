@@ -174,16 +174,20 @@ class FFMpeg(object):
         info = json.loads(stdout_data)
 
         info['posters'] = []
-        for stream in info['streams']:
-            attached_pic = stream['disposition'].get('attached_pic')
-            if stream['codec_type'] not in info:
-                info[stream['codec_type'] + 's'] = []
-                if (stream['codec_type'] != 'video'
-                        or (posters_as_video or not attached_pic)):
-                    info[stream['codec_type']] = stream
-            info[stream['codec_type'] + 's'].append(stream)
-            if attached_pic:
-                info['posters'].append(stream)
+        if 'streams' in info:
+            for stream in info['streams']:
+                try:
+                    attached_pic = stream['disposition']['attached_pic']
+                except KeyError:
+                    attached_pic = None
+                if stream['codec_type'] not in info:
+                    info[stream['codec_type'] + 's'] = []
+                    if (stream['codec_type'] != 'video'
+                            or (posters_as_video or not attached_pic)):
+                        info[stream['codec_type']] = stream
+                info[stream['codec_type'] + 's'].append(stream)
+                if attached_pic:
+                    info['posters'].append(stream)
 
         def de_under(key, value, branch):
             branch[key.replace('_', '')] = value
