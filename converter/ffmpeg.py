@@ -697,7 +697,7 @@ class FFMpeg(object):
 
         assert False, sizing_policy
 
-    def thumbnails(self, fname, option_list):
+    def thumbnails(self, fname, option_list, crop=None):
         """
         Create one or more thumbnails of video.
         @param option_list: a list of tuples like:
@@ -711,6 +711,8 @@ class FFMpeg(object):
             raise IOError('No such file: ' + fname)
 
         cmds = [self.ffmpeg_path, '-i', fname, '-y', '-an']
+        if crop:
+            cmds.append('crop={0}'.format(crop))
         for thumb in option_list:
             if len(thumb) > 2 and thumb[2]:
                 cmds.extend(['-s', str(thumb[2])])
