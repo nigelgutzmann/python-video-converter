@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
 import os
-import re
 
 from converter.avcodecs import video_codec_list, audio_codec_list, subtitle_codec_list
 from converter.formats import format_list
-from converter.ffmpeg import FFMpeg, parse_time
+from converter.ffmpeg import FFMpeg, parse_time, FFMpegError
 
 
 class ConverterError(Exception):
