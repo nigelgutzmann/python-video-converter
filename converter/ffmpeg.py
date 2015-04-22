@@ -697,7 +697,7 @@ class FFMpeg(object):
 
         assert False, sizing_policy
 
-    def thumbnails(self, fname, option_list, crop=None):
+    def thumbnails(self, fname, option_list, crop=None, deinterlace=None):
         """
         Create one or more thumbnails of video.
         @param option_list: a list of tuples like:
@@ -711,9 +711,15 @@ class FFMpeg(object):
             raise IOError('No such file: ' + fname)
 
         cmds = [self.ffmpeg_path, '-i', fname, '-y', '-an']
-        if crop:
-            cmds.append('crop={0}'.format(crop))
         for thumb in option_list:
+            if crop or deinterlace:
+                cmds.append('-vf')
+                filters = []
+                if deinterlace:
+                    filters.append('idet,yadif=0:deint=interlaced')
+                if crop:
+                    filters.append('crop={0}'.format(crop))
+                cmds.append(','.join(filters))
             if len(thumb) > 2 and thumb[2]:
                 cmds.extend(['-s', str(thumb[2])])
 
