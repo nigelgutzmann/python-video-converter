@@ -468,7 +468,7 @@ class FFMpeg(object):
                         adjustement = 0
 
                 if interlacing:
-                    match = re.search('Multi frame detection:\s+TFF:\s+(\d+)\s+BFF:\s+(\d+)\s+Progressive:\s+(\d+)\s+Undetermined:\s+(\d+)', data, re.UNICODE)
+                    match = re.search('Multi frame detection:\s*TFF:\s*(\d+)\s*BFF:\s*(\d+)\s*Progressive:\s*(\d+)\s*Undetermined:\s*(\d+)', data, re.UNICODE)
                     if match is None:
                         raise FFMpegConvertError(
                             'No interlaced data.',
