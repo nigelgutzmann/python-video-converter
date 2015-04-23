@@ -331,8 +331,8 @@ class FFMpeg(object):
             raise FFMpegError('Error while calling ffmpeg binary')
 
         yielded = False
-        buf = ''
-        total_output = ''
+        buf = []
+        total_output = []
         pat = re.compile(r'time=([0-9.:]+) ')
         while True:
             if timeout:
@@ -346,21 +346,23 @@ class FFMpeg(object):
             if not ret:
                 break
 
-            ret = ret.decode(console_encoding, "ignore")
-            total_output += ret
-            buf += ret
-            if '\r' in buf:
+            total_output.append(ret)
+            buf.append(ret)
+            if '\r' in ret:
+                buf = ''.join(buf)
+                buf = buf.decode(console_encoding, 'ignore')
                 line, buf = buf.split('\r', 1)
+                buf = [buf]
 
-                tmp = pat.findall(line)
-                if len(tmp) == 1:
-                    timespec = tmp[0]
+                tmp = pat.search(line)
+                if tmp:
+                    timespec = tmp.group(1)
                     if ':' in timespec:
                         timecode = 0
                         for part in timespec.split(':'):
                             timecode = 60 * timecode + float(part)
                     else:
-                        timecode = float(tmp[0])
+                        timecode = float(timespec)
                     yielded = True
                     yield timecode
 
@@ -369,10 +371,12 @@ class FFMpeg(object):
 
         p.communicate()  # wait for process to exit
 
-        if total_output == '':
+        if not total_output:
             raise FFMpegError('Error while calling ffmpeg binary')
 
         cmd = ' '.join(cmds)
+        total_output = ''.join(total_output)
+        total_output = total_output.decode(console_encoding, 'ignore')
         if '\n' in total_output:
             line = total_output.split('\n')[-2]
 
