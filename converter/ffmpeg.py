@@ -107,10 +107,13 @@ class FFMpeg(object):
             return source
         base_name = match.group(1)
         extension = match.group(2)
-        items = os.listdir(os.path.dirname(source))
+        path = os.path.dirname(source)
+        items = os.listdir(path)
         items.sort()
-        vobs = (item for item in items
-                if re.match('{0}[1-9]{1}'.format(base_name, extension), item))
+        vobs = [os.path.join(path, item) for item in items
+                if re.match('{0}[1-9]{1}'.format(base_name, extension), item)]
+        if len(vobs) == 1:
+            return source
         vobs = '\\|'.join(vobs)
         return 'concat:{0}'.format(vobs)
 
