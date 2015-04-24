@@ -458,18 +458,23 @@ class FFMpeg(object):
                     # Adjust audio volume so loudness will be close as possible
                     # as the target but max peak will not be above AUDIO_PEAK_MAX.
                     loudness = float(match.group(1))
-                    loudness_adj = self.AUDIO_LOUDNESS_TARGET - loudness
-                    if loudness_adj > 0:
-                        peak = float(match.group(2))
-                        peak_adj = self.AUDIO_PEAK_MAX - peak
-                        if peak_adj < 0:
-                            peak_adj = 0
-                        adjustement = min(peak_adj, loudness_adj)
+                    peak = float(match.group(2))
+                    # Check if audio is only noise.
+                    # Values are good only for 16 bits audio.
+                    if loudness < -64 and peak < -40:
+                        adjustement = 'noise'
                     else:
-                        adjustement = loudness_adj
-                    # Don't adjust if adjustment is too small
-                    if -1 < adjustement < 1:
-                        adjustement = 0
+                        loudness_adj = self.AUDIO_LOUDNESS_TARGET - loudness
+                        if loudness_adj > 0:
+                            peak_adj = self.AUDIO_PEAK_MAX - peak
+                            if peak_adj < 0:
+                                peak_adj = 0
+                            adjustement = min(peak_adj, loudness_adj)
+                        else:
+                            adjustement = loudness_adj
+                        # Don't adjust if adjustment is too small
+                        if -1 < adjustement < 1:
+                            adjustement = 0
 
                 if interlacing:
                     match = re.search('Multi frame detection:\s*TFF:\s*(\d+)\s*BFF:\s*(\d+)\s*Progressive:\s*(\d+)\s*Undetermined:\s*(\d+)', data, re.UNICODE)
