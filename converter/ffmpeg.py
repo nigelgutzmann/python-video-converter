@@ -422,7 +422,7 @@ class FFMpeg(object):
             video_filters.append('idet')
 
         if crop:
-            video_filters.append('cropdetect=24:16:0')
+            video_filters.append('cropdetect=0.094:16:0')
 
         if video_filters:
             video_filters = ','.join(video_filters)
@@ -503,14 +503,17 @@ class FFMpeg(object):
                         if 'cropdetect' in line:
                             crop_line = line
                             break
-                    match = re.search('crop=(\d+:\d+:\d+:\d)', crop_line, re.UNICODE)
+                    match = re.search('crop=(-?\d+:-?\d+:-?\d+:-?\d)', crop_line, re.UNICODE)
                     if match is None:
                         raise FFMpegConvertError(
                             'No crop data.',
                             opts,
                             data
                         )
-                    crop_size = match.group(1)
+                    # If there's a negative value in cropdetect return value,
+                    # don't crop, so return None
+                    if not '-' in match.group(1):
+                        crop_size = match.group(1)
 
                 yield adjustement, interlace, crop_size
 
