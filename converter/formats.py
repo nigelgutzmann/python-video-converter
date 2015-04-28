@@ -142,6 +142,6 @@ class HLSFormat(BaseFormat):
         return optlist
 
 format_list = [
-    OggFormat, AviFormat, MkvFormat, WebmFormat, FlvFormat,
+    RawvideoFormat, OggFormat, AviFormat, MkvFormat, WebmFormat, FlvFormat,
     MovFormat, Mp4Format, MpegFormat, Mp3Format, HLSFormat
 ]
