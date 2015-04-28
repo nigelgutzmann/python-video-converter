@@ -283,18 +283,7 @@ class Converter(object):
         if 'video' not in info and 'audio' not in info:
             yield 'no stream'
 
-        options = {
-            'format': 'rawvideo',
-        }
-
-        if 'video' in info:
-            options['video'] = None
-
-        if 'audio' in info:
-            options['audio'] = None
-
-        optlist = self.parse_options(options)
-        processed = self.ffmpeg.convert(source, '/dev/null', optlist,
+        processed = self.ffmpeg.convert(source, '/dev/null', ['-f', 'rawvideo'],
                                         timeout=100, nice=15, get_output=True)
         for timecode in processed:
             if isinstance(timecode, basestring):
