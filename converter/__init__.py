@@ -285,11 +285,16 @@ class Converter(object):
 
         options = {
             'format': 'rawvideo',
-            'audio': None,
-            'video': None
         }
 
-        processed = self.ffmpeg.convert(source, '/dev/null', options,
+        if 'video' in info:
+            options['video'] = None
+
+        if 'audio' in info:
+            options['audio'] = None
+
+        optlist = self.parse_options(options)
+        processed = self.ffmpeg.convert(source, '/dev/null', optlist,
                                         timeout=100, nice=15, get_output=True)
         for timecode in processed:
             if isinstance(timecode, basestring):
