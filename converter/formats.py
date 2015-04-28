@@ -17,6 +17,14 @@ class BaseFormat(object):
         return ['-f', self.ffmpeg_format_name]
 
 
+class RawvideoFormat(BaseFormat):
+    """
+    Rawvideo equal to no container, mostly used for media analyses.
+    """
+    format_name = 'rawvideo'
+    ffmpeg_format_name = 'rawvideo'
+
+
 class OggFormat(BaseFormat):
     """
     Ogg container format, mostly used with Vorbis and Theora.
