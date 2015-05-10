@@ -109,11 +109,11 @@ class FFMpeg(object):
         extension = match.group(2)
         path = os.path.dirname(source)
         items = os.listdir(path)
-        items.sort()
         vobs = [os.path.join(path, item) for item in items
                 if re.match('{0}[1-9]{1}'.format(base_name, extension), item)]
         if len(vobs) == 1:
             return source
+        vobs.sort()
         vobs = '\\|'.join(vobs)
         return 'concat:{0}'.format(vobs)
 
