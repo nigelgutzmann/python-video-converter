@@ -399,7 +399,7 @@ class FFMpeg(object):
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
 
-    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, timeout=10, nice=None):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None):
         """
         Analyze the video frames to find if the video need to be deinterlaced
         and/or crop to remove black strips.
@@ -437,6 +437,9 @@ class FFMpeg(object):
         if duration:
             duration = parse_time(duration)
             opts.extend(['-t', duration])
+        elif end:
+            end = parse_time(end)
+            opts.extend(['-to', end])
 
         for data in self.convert(infile, '/dev/null',
                                  opts, timeout, nice=nice, get_output=True):
