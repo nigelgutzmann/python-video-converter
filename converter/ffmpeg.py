@@ -308,7 +308,18 @@ class FFMpeg(object):
 
         infile = self._check_vob_name(infile)
 
-        cmds = [self.ffmpeg_path, '-hide_banner', '-i', infile]
+        cmds = [self.ffmpeg_path, '-hide_banner']
+        # Add duration and position flag before input.
+        for flag in ('-ss', '-t'):
+            try:
+                idx = opts.index(flag)
+            except ValueError:
+                pass
+            else:
+                cmds.append(opts.pop(idx))
+                cmds.append(opts.pop(idx))
+
+        cmds.extend(['-i', infile])
 
         if nice is not None:
             if 0 < nice < 20:
