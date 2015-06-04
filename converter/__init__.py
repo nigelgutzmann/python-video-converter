@@ -275,24 +275,31 @@ class Converter(object):
         """
         return self.ffmpeg.probe(*args, **kwargs)
 
-    def validate(self, source):
+    def validate(self, source, duration=None):
         if not os.path.exists(source) and not self.ffmpeg.is_url(source):
             yield "Source file doesn't exist: " + source
+            raise StopIteration
 
         info = self.ffmpeg.probe(source)
         if info is None:
             yield 'no info'
+            raise StopIteration
 
         if 'video' not in info and 'audio' not in info:
             yield 'no stream'
+            raise StopIteration
 
-        processed = self.ffmpeg.convert(source, '/dev/null', ['-f', 'null'],
+        opts = ['-f', 'null']
+        if duration:
+            opts += ['-t', str(duration)]
+
+        processed = self.ffmpeg.convert(source, '/dev/null', opts,
                                         timeout=100, nice=15, get_output=True)
         for timecode in processed:
             if isinstance(timecode, basestring):
                 if 'rror while decoding' in timecode:
                     yield 'error'
-                yield None
+                    raise StopIteration
             else:
                 yield timecode
 
