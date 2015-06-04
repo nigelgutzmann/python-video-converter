@@ -344,7 +344,17 @@ class FFMpeg(object):
         yielded = False
         buf = []
         total_output = []
-        pat = re.compile(r'time=([0-9.:]+) ')
+        pat = re.compile(r'time=([0-9.:]+)')
+
+        def get_timecode(timespec):
+            if ':' in timespec:
+                timecode = 0
+                for part in timespec.split(':'):
+                    timecode = 60 * timecode + float(part)
+            else:
+                timecode = float(timespec)
+            return timecode
+
         while True:
             if timeout:
                 signal.alarm(timeout)
@@ -353,7 +363,6 @@ class FFMpeg(object):
 
             if timeout:
                 signal.alarm(0)
-
             if not ret:
                 break
 
@@ -364,18 +373,21 @@ class FFMpeg(object):
                 buf = buf.decode(console_encoding, 'ignore')
                 line, buf = buf.split('\r', 1)
                 buf = [buf]
-
                 tmp = pat.search(line)
                 if tmp:
-                    timespec = tmp.group(1)
-                    if ':' in timespec:
-                        timecode = 0
-                        for part in timespec.split(':'):
-                            timecode = 60 * timecode + float(part)
-                    else:
-                        timecode = float(timespec)
+                    timecode = get_timecode(tmp.group(1))
                     yielded = True
                     yield timecode
+
+        total_output = ''.join(total_output)
+        total_output = total_output.decode(console_encoding, 'ignore')
+        if not yielded:
+            # There may have been a single time, check it
+            tmp = pat.search(total_output)
+            if tmp:
+                timecode = get_timecode(tmp.group(1))
+                yielded = True
+                yield timecode
 
         if timeout:
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
@@ -386,8 +398,6 @@ class FFMpeg(object):
             raise FFMpegError('Error while calling ffmpeg binary')
 
         cmd = ' '.join(cmds)
-        total_output = ''.join(total_output)
-        total_output = total_output.decode(console_encoding, 'ignore')
         if '\n' in total_output:
             line = total_output.split('\n')[-2]
 
