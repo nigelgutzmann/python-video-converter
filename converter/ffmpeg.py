@@ -141,7 +141,7 @@ class FFMpeg(object):
 
         return True
 
-    def probe(self, fname, posters_as_video=True):
+    def probe(self, fname, posters_as_video=False):
         """
         Examine the media file and determine its format and media streams.
         Returns the MediaInfo object, or None if the specified file is
@@ -163,7 +163,7 @@ class FFMpeg(object):
         >>> info['audio']['channels']
         2
         :param posters_as_video: Take poster images (mainly for audio files) as
-            A video stream, defaults to True
+            A video stream, defaults to False
         """
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
