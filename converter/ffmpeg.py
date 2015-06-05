@@ -168,8 +168,6 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             return None
 
-        fname = self._check_vob_name(fname)
-
         p = self._spawn([self.ffprobe_path, '-v', 'quiet', '-print_format',
                         'json', '-show_format', '-show_streams', fname])
         stdout_data, _ = p.communicate()
