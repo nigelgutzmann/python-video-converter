@@ -114,7 +114,7 @@ class FFMpeg(object):
         if len(vobs) == 1:
             return source
         vobs.sort()
-        vobs = '\\|'.join(vobs)
+        vobs = '|'.join(vobs)
         return 'concat:{0}'.format(vobs)
 
     def is_url(self, url):
