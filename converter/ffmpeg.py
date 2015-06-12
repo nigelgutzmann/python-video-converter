@@ -608,18 +608,47 @@ class FFMpeg(object):
             raise FFMpegError('Error while calling ffmpeg binary')
         stderr_data.decode(console_encoding, "ignore")
 
-    def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY):
+    def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY, crop=None, deinterlace=None):
         """
-        Create a thumbnal of media file, and store it to outfile
+        Create a thumbnail of media file, and store it to outfile
         @param time: time point in seconds (float or int) or in HH:MM:SS format.
         @param size: Size, if specified, is WxH of the desired thumbnail.
             If not specified, the video resolution is used.
         @param quality: quality of jpeg file in range 2(best)-31(worst)
             recommended range: 2-6
+        @param crop: crop size for all images specified like in FFMpeg.
+        @param deinterlace: True to apply deinterlacing on thumbnail if needed.
 
         >>> FFMpeg().thumbnail('test1.ogg', 5, '/tmp/shot.png', '320x240')
         """
-        return self.thumbnails(fname, [(time, outfile, size, quality)])
+        if not os.path.exists(fname) and not self.is_url(fname):
+            raise IOError('No such file: ' + fname)
+
+        cmds = [self.ffmpeg_path, '-ss', parse_time(time), '-i', fname, '-y', '-an',
+                '-f', 'image2', '-vframes', '1']
+        if crop or deinterlace:
+            cmds.append('-vf')
+            filters = []
+            if deinterlace:
+                filters.append('idet,yadif=0:deint=interlaced')
+            if crop:
+                filters.append('crop={0}'.format(crop))
+            cmds.append(','.join(filters))
+        if size:
+            cmds.extend(['-s', str(size)])
+
+        cmds.extend([
+            '-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY),
+            outfile
+        ])
+
+        p = self._spawn(cmds)
+        _, stderr_data = p.communicate()
+        if stderr_data == '':
+            raise FFMpegError('Error while calling ffmpeg binary')
+        stderr_data.decode(console_encoding, "ignore")
+        if not os.path.exists(outfile):
+            raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
 
     def _div_by_2(self, d):
         return d+1 if d % 2 else d
@@ -747,32 +776,25 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             raise IOError('No such file: ' + fname)
 
-        cmds = [self.ffmpeg_path, '-i', fname, '-y', '-an']
-        for thumb in option_list:
-            if crop or deinterlace:
-                cmds.append('-vf')
-                filters = []
-                if deinterlace:
-                    filters.append('idet,yadif=0:deint=interlaced')
-                if crop:
-                    filters.append('crop={0}'.format(crop))
-                cmds.append(','.join(filters))
-            if len(thumb) > 2 and thumb[2]:
-                cmds.extend(['-s', str(thumb[2])])
+        errors = {}
 
-            cmds.extend([
-                '-f', 'image2', '-vframes', '1',
-                '-ss', parse_time(thumb[0]), thumb[1],
-                '-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY if len(thumb) < 4 else str(thumb[3])),
-            ])
+        for options in option_list:
+            time = options[0]
+            outfile = options[1]
+            size = options[2] if len(options) > 2 else None
+            quality = options[3] if len(options) > 3 else FFMpeg.DEFAULT_JPEG_QUALITY
 
-        p = self._spawn(cmds)
-        _, stderr_data = p.communicate()
-        if stderr_data == '':
-            raise FFMpegError('Error while calling ffmpeg binary')
-        stderr_data.decode(console_encoding, "ignore")
-        if any(not os.path.exists(option[1]) for option in option_list):
-            raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
+            try:
+                self.thumbnail(fname, time, outfile, size, quality, crop, deinterlace)
+            except Exception, err:
+                errors[outfile] = err
+
+        if errors:
+            messages = u'; '.join(
+                u'{0} gives error: {1}'.format(outfile, error)
+                for outfile, error in errors.iteritems()
+            )
+            raise FFMpegError(messages)
 
 
 def parse_time(time):
