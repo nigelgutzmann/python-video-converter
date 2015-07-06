@@ -4,7 +4,7 @@ import os
 
 from converter.avcodecs import video_codec_list, audio_codec_list, subtitle_codec_list
 from converter.formats import format_list
-from converter.ffmpeg import FFMpeg, parse_time, FFMpegError
+from converter.ffmpeg import FFMpeg, parse_time, timecode_to_seconds, FFMpegError
 
 
 class ConverterError(Exception):
@@ -209,21 +209,33 @@ class Converter(object):
         if info['format']['duration'] < 0.01:
             raise ConverterError('Zero-length media')
 
+        if 'duration' in options:
+            duration = timecode_to_seconds(options['duration'])
+        elif 'start' in options:
+            if 'end' in options:
+                duration = timecode_to_seconds(options['end']) - timecode_to_seconds(options['start'])
+            else:
+                duration = info['format']['duration'] - timecode_to_seconds(options['start'])
+        elif 'end' in options:
+            duration = timecode_to_seconds(options['end'])
+        else:
+            duration = info['format']['duration']
+
         if twopass:
             optlist1 = self.parse_options(options, 1)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist1,
                                                 timeout=timeout, nice=nice):
-                yield int((50.0 * timecode) / info['format']['duration'])
+                yield int((50.0 * timecode) / duration)
 
             optlist2 = self.parse_options(options, 2)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist2,
                                                 timeout=timeout, nice=nice):
-                yield int(50.0 + (50.0 * timecode) / info['format']['duration'])
+                yield int(50.0 + (50.0 * timecode) / duration)
         else:
             optlist = self.parse_options(options, twopass)
             for timecode in self.ffmpeg.convert(infile, outfile, optlist,
                                                 timeout=timeout, nice=nice):
-                yield int((100.0 * timecode) / info['format']['duration'])
+                yield int((100.0 * timecode) / duration)
 
     def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None):
         """
@@ -292,6 +304,9 @@ class Converter(object):
         opts = ['-f', 'null']
         if duration:
             opts += ['-t', str(duration)]
+            duration = timecode_to_seconds(duration)
+        else:
+            duration = info['format']['duration']
 
         processed = self.ffmpeg.convert(source, '/dev/null', opts,
                                         timeout=100, nice=15, get_output=True)
@@ -300,6 +315,8 @@ class Converter(object):
                 if 'rror while decoding' in timecode:
                     yield 'error'
                     raise StopIteration
+            elif duration:
+                yield int((100.0 * timecode) / duration)
             else:
                 yield timecode
 

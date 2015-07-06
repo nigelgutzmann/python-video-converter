@@ -307,15 +307,15 @@ class FFMpeg(object):
         infile = self._check_vob_name(infile)
 
         cmds = [self.ffmpeg_path, '-hide_banner']
-        # Add duration and position flag before input.
-        for flag in ('-ss', '-t'):
-            try:
-                idx = opts.index(flag)
-            except ValueError:
-                pass
-            else:
-                cmds.append(opts.pop(idx))
-                cmds.append(opts.pop(idx))
+        # Add duration and position flag before input when we can.
+        if '-t' in opts:
+            idx = opts.index('-t')
+            cmds.append(opts.pop(idx))
+            cmds.append(opts.pop(idx))
+        if '-ss' in opts and ('-t' in opts or '-to' not in opts):
+            idx = opts.index('-ss')
+            cmds.append(opts.pop(idx))
+            cmds.append(opts.pop(idx))
 
         cmds.extend(['-i', infile])
 
@@ -344,15 +344,6 @@ class FFMpeg(object):
         total_output = []
         pat = re.compile(r'time=([0-9.:]+)')
 
-        def get_timecode(timespec):
-            if ':' in timespec:
-                timecode = 0
-                for part in timespec.split(':'):
-                    timecode = 60 * timecode + float(part)
-            else:
-                timecode = float(timespec)
-            return timecode
-
         while True:
             if timeout:
                 signal.alarm(timeout)
@@ -373,7 +364,7 @@ class FFMpeg(object):
                 buf = [buf]
                 tmp = pat.search(line)
                 if tmp:
-                    timecode = get_timecode(tmp.group(1))
+                    timecode = timecode_to_seconds(tmp.group(1))
                     yielded = True
                     yield timecode
 
@@ -383,7 +374,7 @@ class FFMpeg(object):
             # There may have been a single time, check it
             tmp = pat.search(total_output)
             if tmp:
-                timecode = get_timecode(tmp.group(1))
+                timecode = timecode_to_seconds(tmp.group(1))
                 yielded = True
                 yield timecode
 
@@ -795,6 +786,32 @@ class FFMpeg(object):
                 for outfile, error in errors.iteritems()
             )
             raise FFMpegError(messages)
+
+
+def timecode_to_seconds(timecode):
+    """
+    Convert a valid timecode representation (a str) in seconds (as float).
+    """
+    try:
+        return float(timecode)
+    except ValueError:
+        hours, minutes, seconds = timecode.split(':', 2)
+        return (((int(hours) * 60) + int(minutes)) * 60) + float(seconds)
+
+
+def seconds_to_timecode(seconds):
+    """
+    Convert seconds in int or float to timecode representation.
+    """
+    milliseconds = int(round((seconds % 1) * 1000))
+    seconds = int(seconds)
+    minutes = seconds / 60
+    seconds = seconds % 60
+    hours = minutes / 60
+    minutes = minutes % 60
+    return '{0:02d}:{1:02d}:{2:02d}.{3:03d}'.format(
+        hours, minutes, seconds, milliseconds
+    )
 
 
 def parse_time(time):
