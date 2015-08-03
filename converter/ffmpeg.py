@@ -818,8 +818,8 @@ def parse_time(time):
     try:
         return str(float(time))
     except ValueError:
-        match = re.search('([0-2]?\d):([0-5]?\d):([0-5]?\d)(?:\.(\d{3}))?', time)
+        match = re.search('([0-2]?\d):([0-5]?\d):([0-5]?\d)(?:\.(\d{3}))?$', time)
         if match:
             return '{0:02d}:{1:02d}:{2:02d}.{3:03d}'.format(*(int(i) if i else 0 for i in match.groups()))
 
-    raise ValueError("Invalid 'time'. Should be in seconds or HH:MM:SS format.")
+    raise ValueError("Invalid 'time'. Should be in seconds or HH:MM:SS.xxx format.")
