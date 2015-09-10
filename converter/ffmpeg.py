@@ -278,6 +278,47 @@ class FFMpeg(object):
 
         clean_info(info)
 
+        # For .VOB file get duration with lsdvd.
+        fname = self._check_vob_name(fname)
+        if fname.upper().endswith('.VOB'):
+            part = fname.rsplit('|', 1)[-1]
+            volume, title = part.split('VIDEO_TS/VTS_', 1)
+            title = str(int(title.split('_', 1)[0]))
+            p = self._spawn(['lsdvd', '-q', '-Oy', '-t', title, volume])
+            stdout_data, _ = p.communicate()
+            stdout_data = stdout_data.decode(console_encoding, 'ignore')
+            try:
+                exec stdout_data in locals()
+                duration = float(lsdvd['track'][0]['length'])
+            except Exception:
+                pass
+            else:
+
+                def update_duration(data, duration):
+                    if isinstance(data, dict):
+                        if 'duration' in data:
+                            # Keep ffprobe duration if difference with lsdvd
+                            # duration is less then 1%.
+                            probe_duration = data['duration']
+                            gap = 2
+                            if isinstance(probe_duration, (float, int)) and probe_duration > 0:
+                                if probe_duration > duration:
+                                    gap = probe_duration / duration
+                                else:
+                                    gap = duration / probe_duration
+                            if gap > 1.01:
+                                data['duration'] = duration
+                            data['duration_lsdvd'] = duration
+                            data['duration_probe'] = probe_duration
+
+                        for value in data.values():
+                            update_duration(value, duration)
+                    elif isinstance(data, (tuple, list)):
+                        for item in data:
+                            update_duration(item, duration)
+
+                update_duration(info, duration)
+
         return info
 
     def convert(self, infile, outfile, opts, timeout=10, nice=None, get_output=False):
