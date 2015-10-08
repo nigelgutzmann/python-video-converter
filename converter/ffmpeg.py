@@ -9,6 +9,7 @@ from subprocess import Popen, PIPE
 import logging
 import locale
 import json
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,14 @@ console_encoding = locale.getdefaultlocale()[1] or 'UTF-8'
 
 
 class FFMpegError(Exception):
+    pass
+
+
+class SeekError(FFMpegError):
+    pass
+
+
+class DVDError(FFMpegError):
     pass
 
 
@@ -60,8 +69,9 @@ class FFMpeg(object):
     DEFAULT_JPEG_QUALITY = 4
     AUDIO_PEAK_MAX = -1  # dBTP
     AUDIO_LOUDNESS_TARGET = -16  # LUFS
+    DVD_CONCAT_FILE = '/tmp/dvd_concat.txt'
 
-    def __init__(self, ffmpeg_path=None, ffprobe_path=None):
+    def __init__(self, ffmpeg_path=None, ffprobe_path=None, dvd2concat_path=None):
         """
         Initialize a new FFMpeg wrapper object. Optional parameters specify
         the paths to ffmpeg and ffprobe utilities.
@@ -81,13 +91,19 @@ class FFMpeg(object):
         if ffprobe_path is None:
             ffprobe_path = 'ffprobe'
 
+        if dvd2concat_path is None:
+            dvd2concat_path = 'dvd2concat'
+
         if '/' not in ffmpeg_path:
             ffmpeg_path = which(ffmpeg_path) or ffmpeg_path
         if '/' not in ffprobe_path:
             ffprobe_path = which(ffprobe_path) or ffprobe_path
+        if '/' not in dvd2concat_path:
+            dvd2concat_path = which(dvd2concat_path) or dvd2concat_path
 
         self.ffmpeg_path = ffmpeg_path
         self.ffprobe_path = ffprobe_path
+        self.dvd2concat_path = dvd2concat_path
 
         if not os.path.exists(self.ffmpeg_path):
             raise FFMpegError("ffmpeg binary not found: " + self.ffmpeg_path)
@@ -105,6 +121,7 @@ class FFMpeg(object):
         match = re.search('/VIDEO_TS/(VTS_\d\d_)\d(.VOB)$', source, re.IGNORECASE)
         if match is None:
             return source
+
         base_name = match.group(1)
         extension = match.group(2)
         path = os.path.dirname(source)
@@ -116,6 +133,28 @@ class FFMpeg(object):
         vobs.sort()
         vobs = '|'.join(vobs)
         return 'concat:{0}'.format(vobs)
+
+    def _dvd2concat(self, source):
+        if not os.path.exists(self.dvd2concat_path):
+            raise FFMpegError("dvd2concat script not found: " + self.dvd2concat_path)
+
+        match = re.search('(.+)/VIDEO_TS/VTS_(\d\d)_\d.VOB$', source, re.IGNORECASE)
+        if match is None:
+            return source
+
+        source = match.group(1)
+        title = str(int(match.group(2)))
+
+        p = self._spawn([self.dvd2concat_path, '-title', title, source])
+        stdout_data, _ = p.communicate()
+        stdout_data = stdout_data.decode(console_encoding, 'ignore')
+        if not stdout_data.startswith(u'ffconcat version 1.0'):
+            raise Exception("Invalid concat data from dvd2concat")
+
+        with open(self.DVD_CONCAT_FILE, 'w') as concat_file:
+            concat_file.write(stdout_data)
+
+        return self.DVD_CONCAT_FILE
 
     def is_url(self, url):
         #: Accept objects that have string representations.
@@ -345,9 +384,11 @@ class FFMpeg(object):
         if not os.path.exists(infile) and not self.is_url(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
 
-        infile = self._check_vob_name(infile)
+        infile = self._dvd2concat(infile)
 
         cmds = [self.ffmpeg_path, '-hide_banner']
+        if infile == self.DVD_CONCAT_FILE:
+            cmds.extend(['-f', 'concat', '-safe', '0'])
         # Add duration and position flag before input when we can.
         if '-t' in opts:
             idx = opts.index('-t')
@@ -359,15 +400,18 @@ class FFMpeg(object):
             cmds.append(opts.pop(idx))
 
         cmds.extend(['-i', infile])
+        cmds.extend(opts)
+        cmds.extend(['-y', outfile])
 
+        return self._run_ffmpeg(infile, cmds, timeout=timeout, nice=nice, get_output=get_output)
+
+    def _run_ffmpeg(self, infile, cmds, timeout=10, nice=None, get_output=False):
         if nice is not None:
             if 0 < nice < 20:
                 cmds = ['nice', '-n', str(nice)] + cmds
             else:
                 raise FFMpegError("Invalid nice value: {0}".format(nice))
 
-        cmds.extend(opts)
-        cmds.extend(['-y', outfile])
         if timeout:
             def on_sigalrm(*_):
                 signal.signal(signal.SIGALRM, signal.SIG_DFL)
@@ -642,6 +686,21 @@ class FFMpeg(object):
 
     def thumbnail(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY, crop=None, deinterlace=None):
         """
+        Create a thumbnal of media file, and store it to outfile
+        @param time: time point in seconds (float or int) or in HH:MM:SS format.
+        @param size: Size, if specified, is WxH of the desired thumbnail.
+            If not specified, the video resolution is used.
+        @param quality: quality of jpeg file in range 2(best)-31(worst)
+            recommended range: 2-6
+        @param crop: crop size for all images specified like in FFMpeg.
+        @param deinterlace: True to apply deinterlacing on thumbnail if needed.
+
+        >>> FFMpeg().thumbnail('test1.ogg', 5, '/tmp/shot.png', '320x240')
+        """
+        return self.thumbnails(fname, [(time, outfile, size, quality)], crop=None, deinterlace=None)
+
+    def thumbnail_fast(self, fname, time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY, crop=None, deinterlace=None):
+        """
         Create a thumbnail of media file, and store it to outfile
         @param time: time point in seconds (float or int) or in HH:MM:SS format.
         @param size: Size, if specified, is WxH of the desired thumbnail.
@@ -656,8 +715,14 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             raise IOError('No such file: ' + fname)
 
-        cmds = [self.ffmpeg_path, '-ss', parse_time(time), '-i', fname, '-y', '-an',
-                '-f', 'image2', '-vframes', '1']
+        fname = self._dvd2concat(fname)
+
+        if fname == self.DVD_CONCAT_FILE:
+            raise DVDError('Input is a DVD, need to use slow thumbnail extraction method.')
+
+        cmds = [self.ffmpeg_path, '-ss', parse_time(time), '-i', fname, '-y',
+                '-an', '-f', 'image2', '-vframes', '1']
+
         if crop or deinterlace:
             cmds.append('-vf')
             filters = []
@@ -678,7 +743,9 @@ class FFMpeg(object):
         _, stderr_data = p.communicate()
         if stderr_data == '':
             raise FFMpegError('Error while calling ffmpeg binary')
-        stderr_data.decode(console_encoding, "ignore")
+        stderr_data = stderr_data.decode(console_encoding, "ignore")
+        if u'Output file is empty, nothing was encoded (check -ss / -t / -frames parameters if used)' in stderr_data:
+            raise SeekError(stderr_data)
         if not os.path.exists(outfile):
             raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
 
@@ -795,9 +862,12 @@ class FFMpeg(object):
 
         assert False, sizing_policy
 
-    def thumbnails(self, fname, option_list, crop=None, deinterlace=None):
+    def thumbnails(self, fname, option_list, crop=None, deinterlace=None, no_slow=False):
         """
         Create one or more thumbnails of video.
+        This method is pretty fast as it seek directly to the frame to extract.
+        If there's a problem to seek, this method will fallback to
+        thumbnails_slow.
         @param option_list: a list of tuples like:
             (time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY)
             see documentation of `converter.FFMpeg.thumbnail()` for details.
@@ -810,16 +880,93 @@ class FFMpeg(object):
 
         errors = {}
 
-        for options in option_list:
+        # Sort by timecode so there's more chance that some images can be
+        # extracted without using the slow version for problematic video files.
+        option_list.sort(key=time_sort)
+
+        for idx, options in enumerate(option_list):
+            yield '{0}/{1}'.format(idx + 1, len(option_list))
             time = options[0]
             outfile = options[1]
             size = options[2] if len(options) > 2 else None
             quality = options[3] if len(options) > 3 else FFMpeg.DEFAULT_JPEG_QUALITY
 
             try:
-                self.thumbnail(fname, time, outfile, size, quality, crop, deinterlace)
+                self.thumbnail_fast(fname, time, outfile, size, quality, crop, deinterlace)
+            except (DVDError, SeekError), err:
+                if no_slow:
+                    errors[outfile] = err
+                else:
+                    # Do all remaining thumbnails with the slow version.
+                    for timecode in self.thumbnails_slow(fname, option_list[idx:], crop=crop, deinterlace=deinterlace, errors=errors):
+                        yield timecode
+                    raise StopIteration()
+
             except Exception, err:
                 errors[outfile] = err
+
+        if errors:
+            messages = u'; '.join(
+                u'{0} gives error: {1}'.format(outfile, error)
+                for outfile, error in errors.iteritems()
+            )
+            raise FFMpegError(messages)
+
+    def thumbnails_slow(self, fname, option_list, crop=None, deinterlace=None, errors=None, nice=None):
+        """
+        Create one or more thumbnails of video.
+        @param option_list: a list of tuples like:
+            (time, outfile, size=None, quality=DEFAULT_JPEG_QUALITY)
+            see documentation of `converter.FFMpeg.thumbnail()` for details.
+
+        >>> FFMpeg().thumbnails('test1.ogg', [(5, '/tmp/shot.png', '320x240'),
+        >>>                                   (10, '/tmp/shot2.png', None, 5)])
+        """
+        if not os.path.exists(fname) and not self.is_url(fname):
+            raise IOError('No such file: ' + fname)
+
+        if errors is None:
+            errors = {}
+
+        fname = self._dvd2concat(fname)
+
+        if fname == self.DVD_CONCAT_FILE:
+            cmds = [self.ffmpeg_path, '-f', 'concat', '-safe', '0']
+        else:
+            cmds = [self.ffmpeg_path]
+
+        cmds.extend(['-i', fname, '-y', '-an'])
+
+        option_list.sort(key=time_sort)
+
+        for thumb in option_list:
+            if crop or deinterlace:
+                cmds.append('-vf')
+                filters = []
+                if deinterlace:
+                    filters.append('idet,yadif=0:deint=interlaced')
+                if crop:
+                    filters.append('crop={0}'.format(crop))
+                cmds.append(','.join(filters))
+            if len(thumb) > 2 and thumb[2]:
+                cmds.extend(['-s', str(thumb[2])])
+
+            cmds.extend([
+                '-f', 'image2', '-vframes', '1',
+                '-ss', parse_time(thumb[0]), thumb[1],
+                '-q:v', str(FFMpeg.DEFAULT_JPEG_QUALITY if len(thumb) < 4 else str(thumb[3])),
+            ])
+
+        # Get latest time in seconds.
+        latest_time = timecode_to_seconds(option_list[-1][0])
+        start_time = time.time()
+
+        for timecode in self._run_ffmpeg(fname, cmds, nice=15):
+            yield int(round((time.time() - start_time) / latest_time * 100))
+
+        for options in option_list:
+            if not os.path.exists(options[1]):
+                errors[options[1]] = u'File was not created.'
 
         if errors:
             messages = u'; '.join(
@@ -864,3 +1011,7 @@ def parse_time(time):
             return '{0:02d}:{1:02d}:{2:02d}.{3:03d}'.format(*(int(i) if i else 0 for i in match.groups()))
 
     raise ValueError("Invalid 'time'. Should be in seconds or HH:MM:SS.xxx format.")
+
+
+def time_sort(options):
+    return timecode_to_seconds(options[0])
