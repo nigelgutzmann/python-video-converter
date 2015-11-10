@@ -358,6 +358,9 @@ class FFMpeg(object):
 
                 update_duration(info, duration)
 
+                if not 'duration' in info['format']:
+                    info['format']['duration'] = duration
+
         return info
 
     def convert(self, infile, outfile, opts, timeout=10, nice=None, get_output=False):
