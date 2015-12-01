@@ -699,6 +699,49 @@ class FlvCodec(VideoCodec):
     ffmpeg_codec_name = 'flv'
 
 
+class Ffv1Codec(VideoCodec):
+    """
+    FFV1 Video codec.
+    """
+    codec_name = 'ffv1'
+    ffmpeg_codec_name = 'ffv1'
+    encoder_options = VideoCodec.encoder_options.copy()
+    encoder_options.update({
+        'level': int,  # 1, 3. Select which FFV1 version to use.
+        'coder': int,  # 0=Golomb-Rice, 1=Range Coder,
+                       # 2=Range Coder(with custom state transition table)
+        'context': int,  # 0=small, 1=large
+        'g': int,  # GOP size, >= 1. For archival use, GOP-size should be "1".
+        'slices': int,  # 4, 6, 9, 12, 16, 24, 30.
+                        # Each frame is split into this number of slices.
+                        # This affects multithreading performance, as well as filesize:
+                        # Increasing the number of slices might speed up
+                        # performance, but also increases the filesize.
+        'slicecrc': int,  # Error correction/detection, 0=off, 1=on.
+                          # Enabling this option adds CRC information to each slice.
+                          # This makes it possible for a decoder to detect
+                          # errors in the bitstream, rather than blindly
+                          # decoding a broken slice.
+    })
+
+    def _codec_specific_produce_ffmpeg_list(self, safe):
+        optlist = []
+        if 'level' in safe:
+            optlist.extend(['-level', str(safe['level'])])
+        if 'coder' in safe:
+            optlist.extend(['-coder', str(safe['coder'])])
+        if 'context' in safe:
+            optlist.extend(['-context', str(safe['context'])])
+        if 'g' in safe:
+            optlist.extend(['-g', str(safe['g'])])
+        if 'slices' in safe:
+            optlist.extend(['-slices', str(safe['slices'])])
+        if 'slicecrc' in safe:
+            optlist.extend(['-slicecrc', str(safe['slicecrc'])])
+
+        return optlist
+
+
 class MpegCodec(VideoCodec):
     """
     Base MPEG video codec.
