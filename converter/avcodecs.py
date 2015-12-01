@@ -831,7 +831,7 @@ audio_codec_list = [
 
 video_codec_list = [
     VideoNullCodec, VideoCopyCodec, TheoraCodec, H264Codec,
-    DivxCodec, Vp8Codec, H263Codec, FlvCodec, Mpeg1Codec,
+    DivxCodec, Vp8Codec, H263Codec, FlvCodec, Ffv1Codec, Mpeg1Codec,
     Mpeg2Codec
 ]
 
