@@ -562,7 +562,7 @@ class FFMpeg(object):
                     peak = float(match.group(2))
                     # Check if audio is only noise.
                     # Values are good only for 16 bits audio.
-                    if loudness < -64 and peak < -40:
+                    if loudness < -56 and peak < -40:
                         adjustement = 'noise'
                     else:
                         loudness_adj = self.AUDIO_LOUDNESS_TARGET - loudness
