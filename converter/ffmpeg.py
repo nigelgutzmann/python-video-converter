@@ -537,7 +537,14 @@ class FFMpeg(object):
             opts.extend(['-t', duration])
         elif end:
             end = parse_time(end)
-            opts.extend(['-to', end])
+            # Convert end to duration if start is defined, so the convert
+            # function can put them before the input. If not, the analyze will
+            # be done on the entire file and that will be wrong.
+            if start:
+                duration = timecode_to_seconds(end) - timecode_to_seconds(start)
+                opts.extend(['-t', str(duration)])
+            else:
+                opts.extend(['-to', end])
 
         for data in self.convert(infile, '/dev/null',
                                  opts, timeout, nice=nice, get_output=True):
