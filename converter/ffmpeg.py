@@ -606,22 +606,11 @@ class FFMpeg(object):
                         interlace = False
 
                 if crop:
-                    crop_line = ''
-                    for line in reversed(data.split('\n')):
-                        if 'cropdetect' in line:
-                            crop_line = line
-                            break
-                    match = re.search('crop=(-?\d+:-?\d+:-?\d+:-?\d)', crop_line, re.UNICODE)
-                    if match is None:
-                        raise FFMpegConvertError(
-                            'No crop data.',
-                            opts,
-                            data
-                        )
-                    # If there's a negative value in cropdetect return value,
-                    # don't crop, so return None
-                    if not '-' in match.group(1):
-                        crop_size = match.group(1)
+                    info = self.probe(infile)
+                    video = info['video']
+                    size = (video['width'], video['height'])
+                    fps = video.get('fps', 29.97)
+                    crop_size = parse_crop(data, size, fps)
 
                 yield adjustement, interlace, crop_size
 
@@ -1025,3 +1014,91 @@ def parse_time(time):
 
 def time_sort(options):
     return timecode_to_seconds(options[0])
+
+
+def parse_crop(data, size, fps):
+    width, height = size
+    x_limit = width / 3
+    y_limit = height / 3
+    matches = re.findall('crop=(\d{1,4}):(\d{1,4}):(\d{1,3}):(\d{1,3})', data)
+    if not matches:
+        raise FFMpegConvertError('No crop data.', data)
+
+    values = (
+        (
+            int(x), width - int(x) - int(crop_width),
+            int(y), height - int(y) - int(crop_height)
+        )
+        for crop_width, crop_height, x, y in matches
+    )
+    values = zip(*values)
+
+    def counter(collection, limit):
+        counted = {}
+        for item in set(collection):
+            if item > limit:
+                continue
+            counted[item] = collection.count(item)
+        return counted
+
+    results = {
+        'left': counter(values[0], x_limit),
+        'right': counter(values[1], x_limit),
+        'top': counter(values[2], y_limit),
+        'bottom': counter(values[3], y_limit),
+    }
+
+    # For each side find the larger gap between the number of frames of each
+    # dimension and keep the dimension before the gap.
+    for pos, result in results.iteritems():
+        dims = result.keys()
+        dims.sort()
+
+        largest_gap = 0
+        dim = dims[0]
+        for idx in range(len(dims) - 1):
+            gap = result[dims[idx]] - result[dims[idx + 1]]
+            if gap >= largest_gap:
+                largest_gap = gap
+                dim = dims[idx]
+                if dim:
+                    dim += 2
+
+        results[pos] = dim
+
+    x_sub = float(results['left'] + results['right'])
+    y_sub = float(results['top'] + results['bottom'])
+
+    if width <= 720 and height <= 576 and x_sub / width < 0.06 and y_sub / height < 0.05:
+        # Here we are dealing with NTSC/PAL artifacts, not with pillars, etc.
+        # Recalculate the smaller crop to keep the ratio intact.
+        if x_sub / width > y_sub / height:
+            final_y_sub = int(round(x_sub * height / width))
+            delta_y_sub = final_y_sub - y_sub
+            delta_top_sub = int(round(delta_y_sub / 2))
+            results['top'] += delta_top_sub
+            results['bottom'] += int(delta_y_sub) - delta_top_sub
+        else:
+            final_x_sub = int(round(y_sub * width / height))
+            delta_x_sub = final_x_sub - x_sub
+            delta_left_sub = int(round(delta_x_sub / 2))
+            results['left'] += delta_left_sub
+            results['right'] += int(delta_x_sub) - delta_left_sub
+
+        x_sub = results['left'] + results['right']
+        y_sub = results['top'] + results['bottom']
+        crop_width = int(width - x_sub)
+        crop_height = int(height - y_sub)
+
+    else:
+        # Round to multiple of 2 for pillars because there will be no scaling.
+        base_width = int(width - x_sub)
+        base_height = int(height - y_sub)
+        crop_width = base_width / 2 * 2
+        crop_height = base_height / 2 * 2
+        if x_sub:
+            results['left'] = int(round(results['left'] * (width - crop_width) / x_sub))
+        if y_sub:
+            results['top'] = int(round(results['top'] * (height - crop_height) / y_sub))
+
+    return '{0}:{1}:{2}:{3}'.format(crop_width, crop_height, results['left'], results['top'])
