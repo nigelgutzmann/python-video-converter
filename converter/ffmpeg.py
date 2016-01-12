@@ -520,7 +520,7 @@ class FFMpeg(object):
             video_filters.append('idet')
 
         if crop:
-            video_filters.append('cropdetect=0.094:16:0')
+            video_filters.append('cropdetect=0.12:2:1')
 
         if video_filters:
             video_filters = ','.join(video_filters)
