@@ -520,7 +520,7 @@ class FFMpeg(object):
             video_filters.append('idet')
 
         if crop:
-            video_filters.append('cropdetect=0.12:2:1')
+            video_filters.append('cropdetect=0.14:2:1')
 
         if video_filters:
             video_filters = ','.join(video_filters)
@@ -1018,12 +1018,16 @@ def time_sort(options):
 
 def parse_crop(data, size, fps):
     width, height = size
-    x_limit = width / 3
-    y_limit = height / 3
+    # Maximum width and height of a black border.
+    x_limit = width / 4
+    y_limit = height / 4
+    # Get all the only positive crop values.
     matches = re.findall('crop=(\d{1,4}):(\d{1,4}):(\d{1,3}):(\d{1,3})', data)
     if not matches:
         raise FFMpegConvertError('No crop data.', data)
 
+    # For each crop values, get or calculate the left, right, top and bottom
+    # values.
     values = (
         (
             int(x), width - int(x) - int(crop_width),
@@ -1031,8 +1035,10 @@ def parse_crop(data, size, fps):
         )
         for crop_width, crop_height, x, y in matches
     )
+    # Regroup values by side.
     values = zip(*values)
 
+    # Count the number of occurences of each width/height.
     def counter(collection, limit):
         counted = {}
         for item in set(collection):
@@ -1051,18 +1057,25 @@ def parse_crop(data, size, fps):
     # For each side find the larger gap between the number of frames of each
     # dimension and keep the dimension before the gap.
     for pos, result in results.iteritems():
-        dims = result.keys()
-        dims.sort()
+        if result:
+            dims = result.keys()
+            dims.sort()
 
-        largest_gap = 0
-        dim = dims[0]
-        for idx in range(len(dims) - 1):
-            gap = result[dims[idx]] - result[dims[idx + 1]]
-            if gap >= largest_gap:
-                largest_gap = gap
-                dim = dims[idx]
-                if dim:
-                    dim += 2
+            largest_gap = 0
+            dim = dims[0]
+            for idx in range(len(dims) - 1):
+                gap = result[dims[idx]] - result[dims[idx + 1]]
+                if gap >= largest_gap:
+                    largest_gap = gap
+                    dim = dims[idx]
+            # Check last value.
+            if result[dims[-1]] >= largest_gap:
+                dim = dims[-1]
+            # Add a bit of padding to crop blurry transition.
+            if dim:
+                dim += 2
+        else:
+            dim = 0
 
         results[pos] = dim
 
