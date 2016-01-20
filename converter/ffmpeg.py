@@ -1073,7 +1073,7 @@ def parse_crop(data, size, fps):
                 dim = dims[-1]
             # Add a bit of padding to crop blurry transition.
             if dim:
-                dim += 2
+                dim += 4  # add some padding
         else:
             dim = 0
 
