@@ -135,12 +135,12 @@ class FFMpeg(object):
         return 'concat:{0}'.format(vobs)
 
     def _dvd2concat(self, source):
-        if not os.path.exists(self.dvd2concat_path):
-            raise FFMpegError("dvd2concat script not found: " + self.dvd2concat_path)
-
         match = re.search('(.+)/VIDEO_TS/VTS_(\d\d)_\d.VOB$', source, re.IGNORECASE)
         if match is None:
             return source
+
+        if not os.path.exists(self.dvd2concat_path):
+            raise FFMpegError("dvd2concat script not found: " + self.dvd2concat_path)
 
         source = match.group(1)
         title = str(int(match.group(2)))
@@ -319,10 +319,16 @@ class FFMpeg(object):
 
         # For .VOB file get duration with lsdvd.
         fname = self._check_vob_name(fname)
-        if fname.upper().endswith('.VOB'):
-            part = fname.rsplit('|', 1)[-1]
-            volume, title = part.split('VIDEO_TS/VTS_', 1)
-            title = str(int(title.split('_', 1)[0]))
+        if (fname.upper().endswith('.VOB')
+                or (fname.lower().endswith('.iso')
+                    and not 'duration' in info['format'])):
+            if fname.upper().endswith('.VOB'):
+                part = fname.rsplit('|', 1)[-1]
+                volume, title = part.split('VIDEO_TS/VTS_', 1)
+                title = str(int(title.split('_', 1)[0]))
+            else:
+                volume = fname
+                title = 1
             p = self._spawn(['lsdvd', '-q', '-Oy', '-t', title, volume])
             stdout_data, _ = p.communicate()
             stdout_data = stdout_data.decode(console_encoding, 'ignore')
@@ -387,7 +393,7 @@ class FFMpeg(object):
         if not os.path.exists(infile) and not self.is_url(infile):
             raise FFMpegError("Input file doesn't exist: " + infile)
 
-        infile = self._dvd2concat(infile)
+        # infile = self._dvd2concat(infile)
 
         cmds = [self.ffmpeg_path, '-hide_banner']
         if infile == self.DVD_CONCAT_FILE:
@@ -714,7 +720,7 @@ class FFMpeg(object):
         if not os.path.exists(fname) and not self.is_url(fname):
             raise IOError('No such file: ' + fname)
 
-        fname = self._dvd2concat(fname)
+        # fname = self._dvd2concat(fname)
 
         if fname == self.DVD_CONCAT_FILE:
             raise DVDError('Input is a DVD, need to use slow thumbnail extraction method.')
