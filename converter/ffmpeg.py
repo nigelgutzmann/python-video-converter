@@ -328,7 +328,7 @@ class FFMpeg(object):
                 title = str(int(title.split('_', 1)[0]))
             else:
                 volume = fname
-                title = 1
+                title = '1'
             p = self._spawn(['lsdvd', '-q', '-Oy', '-t', title, volume])
             stdout_data, _ = p.communicate()
             stdout_data = stdout_data.decode(console_encoding, 'ignore')
