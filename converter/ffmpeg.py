@@ -433,7 +433,7 @@ class FFMpeg(object):
             if infile.upper().endswith('.VOB'):
                 infile = os.path.dirname(infile)
             nice = cmds[0:3] if cmds[0] == 'nice' else []
-            cmds = nice + ['tccat', '-i', infile, '-T', title + ',-1', '2>/dev/null', '|'] + cmds
+            cmds = nice + ['tccat', '-i', infile, '-T', str(title) + ',-1', '2>/dev/null', '|'] + cmds
 
         if timeout:
             def on_sigalrm(*_):
