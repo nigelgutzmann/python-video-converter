@@ -448,7 +448,7 @@ class FFMpeg(object):
         try:
             if preprocess:
                 self.current_process = self._spawn(cmds, preprocess.stdout)
-                preprocess.sdtout.close()
+                preprocess.stdout.close()
             else:
                 self.current_process = self._spawn(cmds)
             p = self.current_process
