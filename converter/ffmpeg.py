@@ -114,9 +114,9 @@ class FFMpeg(object):
             raise FFMpegError("ffprobe binary not found: " + self.ffprobe_path)
 
     @staticmethod
-    def _spawn(cmds):
+    def _spawn(cmds, stdin=PIPE):
         logger.debug('Spawning ffmpeg with command: ' + ' '.join(cmds))
-        return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
+        return Popen(cmds, shell=False, stdin=stdin, stdout=PIPE, stderr=PIPE,
                      close_fds=True)
 
     def stop(self):
@@ -433,7 +433,10 @@ class FFMpeg(object):
             if infile.upper().endswith('.VOB'):
                 infile = os.path.dirname(infile)
             nice = cmds[0:3] if cmds[0] == 'nice' else []
-            cmds = nice + ['tccat', '-i', infile, '-T', str(title) + ',-1', '2>/dev/null', '|'] + cmds
+            piped_cmds = nice + ['tccat', '-i', infile, '-T', str(title) + ',-1', '2>/dev/null']
+            preprocess = self._spawn(piped_cmds)
+        else:
+            preprocess = None
 
         if timeout:
             def on_sigalrm(*_):
@@ -443,7 +446,11 @@ class FFMpeg(object):
             signal.signal(signal.SIGALRM, on_sigalrm)
 
         try:
-            self.current_process = self._spawn(cmds)
+            if preprocess:
+                self.current_process = self._spawn(cmds, preprocess.stdout)
+                preprocess.sdtout.close()
+            else:
+                self.current_process = self._spawn(cmds)
             p = self.current_process
         except OSError:
             raise FFMpegError('Error while calling ffmpeg binary')
