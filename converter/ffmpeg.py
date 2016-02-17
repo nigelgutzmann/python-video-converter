@@ -430,7 +430,7 @@ class FFMpeg(object):
                 raise FFMpegError("Invalid nice value: {0}".format(nice))
 
         if 'pipe:' in cmds:
-            if infile.upper.endswith('.VOB'):
+            if infile.upper().endswith('.VOB'):
                 infile = os.path.dirname(infile)
             nice = cmds[0:3] if cmds[0] == 'nice' else []
             cmds = nice + ['tccat', '-i', infile, '-T', title + ',-1', '2>/dev/null', '|'] + cmds
