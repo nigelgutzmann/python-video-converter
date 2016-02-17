@@ -77,6 +77,8 @@ class FFMpeg(object):
         the paths to ffmpeg and ffprobe utilities.
         """
 
+        self.current_process = None
+
         def which(name):
             path = os.environ.get('PATH', os.defpath)
             for d in path.split(':'):
@@ -116,6 +118,13 @@ class FFMpeg(object):
         logger.debug('Spawning ffmpeg with command: ' + ' '.join(cmds))
         return Popen(cmds, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
                      close_fds=True)
+
+    def stop(self):
+        if self.current_process:
+            try:
+                self.current_process.terminate()
+            except (OSError, AttributeError):
+                raise FFMpegError("Can't stop FFmpeg")
 
     def _check_vob_name(self, source):
         match = re.search('/VIDEO_TS/(VTS_\d\d_)\d(.VOB)$', source, re.IGNORECASE)
@@ -180,7 +189,7 @@ class FFMpeg(object):
 
         return True
 
-    def probe(self, fname, posters_as_video=False):
+    def probe(self, fname, posters_as_video=False, title=None):
         """
         Examine the media file and determine its format and media streams.
         Returns the MediaInfo object, or None if the specified file is
@@ -318,18 +327,15 @@ class FFMpeg(object):
         clean_info(info)
 
         # For .VOB file get duration with lsdvd.
-        fname = self._check_vob_name(fname)
-        if (fname.upper().endswith('.VOB')
-                or (fname.lower().endswith('.iso')
-                    and not 'duration' in info['format'])):
-            if fname.upper().endswith('.VOB'):
-                part = fname.rsplit('|', 1)[-1]
-                volume, title = part.split('VIDEO_TS/VTS_', 1)
-                title = str(int(title.split('_', 1)[0]))
-            else:
-                volume = fname
-                title = '1'
-            p = self._spawn(['lsdvd', '-q', '-Oy', '-t', title, volume])
+        # fname = self._check_vob_name(fname)
+        ext = os.path.splitext(fname)[1].upper()
+        if ext == '.ISO' or (ext == '.VOB' and 'VIDEO_TS/VTS_' in fname):
+            if ext == '.VOB':
+                # part = fname.rsplit('|', 1)[-1]
+                fname, end = fname.split('VIDEO_TS/VTS_', 1)
+                if title is None:
+                    title = int(end.split('_', 1)[0])
+            p = self._spawn(['lsdvd', '-q', '-Oy', '-t', str(title), fname])
             stdout_data, _ = p.communicate()
             stdout_data = stdout_data.decode(console_encoding, 'ignore')
             try:
@@ -338,7 +344,6 @@ class FFMpeg(object):
             except Exception:
                 pass
             else:
-
                 def update_duration(data, duration):
                     if isinstance(data, dict):
                         if 'duration' in data:
@@ -369,7 +374,7 @@ class FFMpeg(object):
 
         return info
 
-    def convert(self, infile, outfile, opts, timeout=10, nice=None, get_output=False):
+    def convert(self, infile, outfile, opts, timeout=10, nice=None, get_output=False, title=None):
         """
         Convert the source media (infile) according to specified options
         (a list of ffmpeg switches as strings) and save it to outfile.
@@ -408,18 +413,27 @@ class FFMpeg(object):
             cmds.append(opts.pop(idx))
             cmds.append(opts.pop(idx))
 
-        cmds.extend(['-i', infile])
+        if get_output and infile.upper().endswith(('.ISO', '.VOB')):
+            cmds.extend(['-i', 'pipe:'])
+        else:
+            cmds.extend(['-i', infile])
         cmds.extend(opts)
         cmds.extend(['-y', outfile])
 
-        return self._run_ffmpeg(infile, cmds, timeout=timeout, nice=nice, get_output=get_output)
+        return self._run_ffmpeg(infile, cmds, timeout=timeout, nice=nice, get_output=get_output, title=title)
 
-    def _run_ffmpeg(self, infile, cmds, timeout=10, nice=None, get_output=False):
+    def _run_ffmpeg(self, infile, cmds, timeout=10, nice=None, get_output=False, title=None):
         if nice is not None:
             if 0 < nice < 20:
                 cmds = ['nice', '-n', str(nice)] + cmds
             else:
                 raise FFMpegError("Invalid nice value: {0}".format(nice))
+
+        if 'pipe:' in cmds:
+            if infile.upper.endswith('.VOB'):
+                infile = os.path.dirname(infile)
+            nice = cmds[0:3] if cmds[0] == 'nice' else []
+            cmds = nice + ['tccat', '-i', infile, '-T', title + ',-1', '2>/dev/null', '|'] + cmds
 
         if timeout:
             def on_sigalrm(*_):
@@ -429,7 +443,8 @@ class FFMpeg(object):
             signal.signal(signal.SIGALRM, on_sigalrm)
 
         try:
-            p = self._spawn(cmds)
+            self.current_process = self._spawn(cmds)
+            p = self.current_process
         except OSError:
             raise FFMpegError('Error while calling ffmpeg binary')
 
@@ -487,7 +502,7 @@ class FFMpeg(object):
             if line.startswith('Received signal'):
                 # Received signal 15: terminating.
                 raise FFMpegConvertError(line.split(':')[0], cmd, total_output, pid=p.pid)
-            if line.startswith(infile + ': '):
+            if line.startswith(infile):
                 err = line[len(infile) + 2:]
                 raise FFMpegConvertError('Encoding error', cmd, total_output,
                                          err, pid=p.pid)
@@ -503,7 +518,7 @@ class FFMpeg(object):
             raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
                                      total_output, pid=p.pid)
 
-    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None, title=None):
         """
         Analyze the video frames to find if the video need to be deinterlaced
         and/or crop to remove black strips.
@@ -526,7 +541,7 @@ class FFMpeg(object):
             video_filters.append('idet')
 
         if crop:
-            video_filters.append('cropdetect=0.14:2:1')
+            video_filters.append('cropdetect=0.12:2:1')
 
         if video_filters:
             video_filters = ','.join(video_filters)
@@ -612,7 +627,7 @@ class FFMpeg(object):
                         interlace = False
 
                 if crop:
-                    info = self.probe(infile)
+                    info = self.probe(infile, title=title)
                     video = info['video']
                     size = (video['width'], video['height'])
                     fps = video.get('fps', 29.97)
@@ -622,11 +637,11 @@ class FFMpeg(object):
 
     def thumbnails_by_interval(self, source, output_pattern, interval=1,
                                max_width=None, max_height=None, autorotate=False,
-                               sizing_policy=None, skip=False):
+                               sizing_policy=None, skip=False, title=None):
         """
         Create one or more thumbnails of video by a specified interval.
         """
-        info = self.probe(source)
+        info = self.probe(source, title=title)
         if 'video' not in info:
             raise ValueError("Video stream not found.")
 

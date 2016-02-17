@@ -142,7 +142,7 @@ class Converter(object):
 
         return optlist
 
-    def convert(self, infile, outfile, options, twopass=False, timeout=10, nice=None):
+    def convert(self, infile, outfile, options, twopass=False, timeout=10, nice=None, title=None):
         """
         Convert media file (infile) according to specified options, and
         save it to outfile. For two-pass encoding, specify the pass (1 or 2)
@@ -191,7 +191,7 @@ class Converter(object):
         if not os.path.exists(infile) and not self.ffmpeg.is_url(infile):
             raise ConverterError("Source file doesn't exist: " + infile)
 
-        info = self.ffmpeg.probe(infile)
+        info = self.ffmpeg.probe(infile, title=title)
         if info is None:
             raise ConverterError("Can't get information about source file")
 
@@ -237,7 +237,7 @@ class Converter(object):
                                                 timeout=timeout, nice=nice):
                 yield int((100.0 * timecode) / duration)
 
-    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None):
+    def analyze(self, infile, audio_level=True, interlacing=True, crop=False, start=None, duration=None, end=None, timeout=10, nice=None, title=None):
         """
         Analyze the video frames to find if the video need to be deinterlaced.
         Or/and analyze the audio to find if the audio need to be normalize
@@ -254,7 +254,7 @@ class Converter(object):
         if not os.path.exists(infile) and not self.ffmpeg.is_url(infile):
             raise ConverterError("Source file doesn't exist: " + infile)
 
-        info = self.ffmpeg.probe(infile)
+        info = self.ffmpeg.probe(infile, title=title)
         if info is None:
             raise ConverterError("Can't get information about source file")
 
@@ -287,12 +287,12 @@ class Converter(object):
         """
         return self.ffmpeg.probe(*args, **kwargs)
 
-    def validate(self, source, duration=None):
+    def validate(self, source, duration=None, title=None):
         if not os.path.exists(source) and not self.ffmpeg.is_url(source):
             yield "Source file doesn't exist: " + source
             raise StopIteration
 
-        info = self.ffmpeg.probe(source)
+        info = self.ffmpeg.probe(source, title=title)
         if info is None:
             yield 'no info'
             raise StopIteration
@@ -309,7 +309,7 @@ class Converter(object):
             duration = info['format']['duration']
 
         processed = self.ffmpeg.convert(source, '/dev/null', opts,
-                                        timeout=100, nice=15, get_output=True)
+                                        timeout=100, nice=15, get_output=True, title=title)
         for timecode in processed:
             if isinstance(timecode, basestring):
                 if 'rror while decoding' in timecode:
