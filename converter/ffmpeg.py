@@ -500,6 +500,8 @@ class FFMpeg(object):
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
         p.communicate()  # wait for process to exit
+        if preprocess:
+            preprocess.wait()
 
         if not total_output:
             raise FFMpegError('Error while calling ffmpeg binary')
