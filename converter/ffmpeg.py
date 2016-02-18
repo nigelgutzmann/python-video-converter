@@ -501,6 +501,7 @@ class FFMpeg(object):
 
         p.communicate()  # wait for process to exit
         if preprocess:
+            preprocess.terminate()
             preprocess.wait()
 
         if not total_output:
