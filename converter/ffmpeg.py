@@ -413,7 +413,9 @@ class FFMpeg(object):
             cmds.append(opts.pop(idx))
             cmds.append(opts.pop(idx))
 
-        if get_output and infile.upper().endswith(('.ISO', '.VOB')):
+        ext = os.path.splitext(infile)[1].upper()
+        if get_output and (ext == '.ISO'
+                           or (ext == '.VOB' and 'VIDEO_TS/VTS_' in infile)):
             cmds.extend(['-i', 'pipe:'])
         else:
             cmds.extend(['-i', infile])
