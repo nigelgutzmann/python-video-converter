@@ -331,7 +331,7 @@ class FFMpeg(object):
         ext = os.path.splitext(fname)[1].upper()
         if (ext == '.ISO'
             or (ext == '.VOB'
-                and ('VIDEO_TS/VTS_' in fname or fname.startswith('tccat_L')))):
+                and ('VIDEO_TS/VTS_' in fname or '/tccat_L' in fname))):
 
             def update_duration(data, duration):
                 if isinstance(data, dict):
@@ -356,9 +356,9 @@ class FFMpeg(object):
                     for item in data:
                         update_duration(item, duration)
 
-            if fname.startswith('tccat_L'):
+            if '/tccat_L' in fname:
                 try:
-                    duration = float(fname[7:].split('_', 1)[0])
+                    duration = float(fname.split('/tccat_L', 1)[1].split('_', 1)[0])
                 except Exception:
                     pass
                 else:
