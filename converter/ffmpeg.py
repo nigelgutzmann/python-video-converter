@@ -329,48 +329,60 @@ class FFMpeg(object):
         # For .VOB file get duration with lsdvd.
         # fname = self._check_vob_name(fname)
         ext = os.path.splitext(fname)[1].upper()
-        if ext == '.ISO' or (ext == '.VOB' and 'VIDEO_TS/VTS_' in fname):
-            if ext == '.VOB':
-                # part = fname.rsplit('|', 1)[-1]
-                fname, end = fname.split('VIDEO_TS/VTS_', 1)
-                if title is None:
-                    title = int(end.split('_', 1)[0])
-            p = self._spawn(['lsdvd', '-q', '-Oy', '-t', str(title), fname])
-            stdout_data, _ = p.communicate()
-            stdout_data = stdout_data.decode(console_encoding, 'ignore')
-            try:
-                exec stdout_data in locals()
-                duration = float(lsdvd['track'][0]['length'])
-            except Exception:
-                pass
+        if (ext == '.ISO'
+            or (ext == '.VOB'
+                and ('VIDEO_TS/VTS_' in fname or fname.startswith('tccat_L')))):
+
+            def update_duration(data, duration):
+                if isinstance(data, dict):
+                    if 'duration' in data:
+                        # Keep ffprobe duration if difference with lsdvd
+                        # duration is less then 1%.
+                        probe_duration = data['duration']
+                        gap = 2
+                        if isinstance(probe_duration, (float, int)) and probe_duration > 0:
+                            if probe_duration > duration:
+                                gap = probe_duration / duration
+                            else:
+                                gap = duration / probe_duration
+                        if gap > 1.01:
+                            data['duration'] = duration
+                        data['duration_lsdvd'] = duration
+                        data['duration_probe'] = probe_duration
+
+                    for value in data.values():
+                        update_duration(value, duration)
+                elif isinstance(data, (tuple, list)):
+                    for item in data:
+                        update_duration(item, duration)
+
+            if fname.startswith('tccat_L'):
+                try:
+                    duration = float(fname[7:].split('_', 1)[0])
+                except Exception:
+                    pass
+                else:
+                    update_duration(info, duration)
+                    if not 'duration' in info['format']:
+                        info['format']['duration'] = duration
             else:
-                def update_duration(data, duration):
-                    if isinstance(data, dict):
-                        if 'duration' in data:
-                            # Keep ffprobe duration if difference with lsdvd
-                            # duration is less then 1%.
-                            probe_duration = data['duration']
-                            gap = 2
-                            if isinstance(probe_duration, (float, int)) and probe_duration > 0:
-                                if probe_duration > duration:
-                                    gap = probe_duration / duration
-                                else:
-                                    gap = duration / probe_duration
-                            if gap > 1.01:
-                                data['duration'] = duration
-                            data['duration_lsdvd'] = duration
-                            data['duration_probe'] = probe_duration
-
-                        for value in data.values():
-                            update_duration(value, duration)
-                    elif isinstance(data, (tuple, list)):
-                        for item in data:
-                            update_duration(item, duration)
-
-                update_duration(info, duration)
-
-                if not 'duration' in info['format']:
-                    info['format']['duration'] = duration
+                if ext == '.VOB':
+                    # part = fname.rsplit('|', 1)[-1]
+                    fname, end = fname.split('VIDEO_TS/VTS_', 1)
+                    if title is None:
+                        title = int(end.split('_', 1)[0])
+                p = self._spawn(['lsdvd', '-q', '-Oy', '-t', str(title), fname])
+                stdout_data, _ = p.communicate()
+                stdout_data = stdout_data.decode(console_encoding, 'ignore')
+                try:
+                    exec stdout_data in locals()
+                    duration = float(lsdvd['track'][0]['length'])
+                except Exception:
+                    pass
+                else:
+                    update_duration(info, duration)
+                    if not 'duration' in info['format']:
+                        info['format']['duration'] = duration
 
         return info
 
