@@ -1106,16 +1106,26 @@ def parse_crop(data, size, fps):
             dims = result.keys()
             dims.sort()
 
+            length = width if pos in ('left', 'right') else height
+            threshold = int(round(length * 0.03))
+            gap_coord = 0
+
             largest_gap = 0
             dim = dims[0]
             for idx in range(len(dims) - 1):
+                # If we already found a gap, stop looking for another one too
+                # far away.
+                if gap_coord and dims[idx] - gap_coord > threshold:
+                    break
                 gap = result[dims[idx]] - result[dims[idx + 1]]
                 if gap >= largest_gap:
                     largest_gap = gap
                     dim = dims[idx]
-            # Check last value.
-            if result[dims[-1]] >= largest_gap:
-                dim = dims[-1]
+                    gap_coord = dim
+            else:
+                # Check last value.
+                if result[dims[-1]] >= largest_gap:
+                    dim = dims[-1]
             # Add a bit of padding to crop blurry transition.
             if dim:
                 dim += 4  # add some padding
