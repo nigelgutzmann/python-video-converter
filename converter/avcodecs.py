@@ -188,6 +188,7 @@ class VideoCodec(BaseCodec):
         'codec': str,
         'bitrate': float,
         'fps': float,
+        'pix_fmt': str,
         'max_width': int,
         'max_height': int,
         'sizing_policy': str,
@@ -411,7 +412,9 @@ class VideoCodec(BaseCodec):
 
         # Use the most common pixel format by default. If the selected pixel format can not be selected,
         # ffmpeg select the best pixel format supported by the encoder.
-        optlist = ['-pix_fmt', 'yuv420p', '-vcodec', self.ffmpeg_codec_name]
+        pix_fmt = safe.get('pix_fmt', 'yuv420p')
+
+        optlist = ['-vcodec', self.ffmpeg_codec_name, '-pix_fmt', pix_fmt]
 
         if 'fps' in safe:
             optlist.extend(['-r', str(round(safe['fps'], 2))])
