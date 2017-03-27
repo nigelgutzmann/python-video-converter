@@ -199,6 +199,10 @@ class VideoCodec(BaseCodec):
         'filters': str,
         'autorotate': bool,
         'bufsize': int,
+        'flags': str,
+        'color_primaries': str,
+        'color_trc': str,
+        'colorspace': str,
     }
 
     def _autorotate(self, src_rotate):
@@ -422,6 +426,14 @@ class VideoCodec(BaseCodec):
             optlist.extend(['-vb', str(safe['bitrate']) + 'M'])
         if 'bufsize' in safe:
             optlist.extend(['-bufsize', str(safe['bufsize']) + 'k'])
+        if 'flags' in safe:
+            optlist.extend(['-flags', str(safe['flags'])])
+        if 'color_primaries' in safe:
+            optlist.extend(['-color_primaries', str(safe['color_primaries'])])
+        if 'color_trc' in safe:
+            optlist.extend(['-color_trc', str(safe['color_trc'])])
+        if 'colorspace' in safe:
+            optlist.extend(['-colorspace', str(safe['colorspace'])])
         if w and h:
             optlist.extend(['-s', '{0}x{1}'.format(w, h)])
             if 'aspect' in safe:
@@ -634,6 +646,7 @@ class H264Codec(VideoCodec):
         'subq': int,
         'b-pyramid': int,
         'trellis': int,
+        'x264opts': str,
     })
 
     def _codec_specific_produce_ffmpeg_list(self, safe):
@@ -666,6 +679,8 @@ class H264Codec(VideoCodec):
             optlist.extend(['-b-pyramid', str(safe['b-pyramid'])])
         if 'trellis' in safe:
             optlist.extend(['-trellis', str(safe['trellis'])])
+        if 'x264opts' in safe:
+            optlist.extend(['-x264opts', str(safe['x264opts'])])
 
         return optlist
 
