@@ -452,13 +452,6 @@ class FFMpeg(object):
         else:
             preprocess = None
 
-        if timeout:
-            def on_sigalrm(*_):
-                signal.signal(signal.SIGALRM, signal.SIG_DFL)
-                raise Exception('timed out while waiting for ffmpeg')
-
-            signal.signal(signal.SIGALRM, on_sigalrm)
-
         try:
             if preprocess:
                 self.current_process = self._spawn(cmds, preprocess.stdout)
@@ -469,6 +462,21 @@ class FFMpeg(object):
         except OSError:
             raise FFMpegError('Error while calling ffmpeg binary')
 
+        if timeout:
+            def on_sigvtalrm(*_):
+                try:
+                    signal.signal(signal.SIGVTALRM, signal.SIG_DFL)
+                except ValueError:
+                    pass
+                if p.poll() is None:
+                    p.kill()
+                raise Exception('timed out while waiting for ffmpeg called with this command: {0}'.format(' '.join(cmds)))
+
+            try:
+                signal.signal(signal.SIGVTALRM, on_sigvtalrm)
+            except ValueError:
+                pass
+
         yielded = False
         buf = []
         total_output = []
@@ -476,12 +484,13 @@ class FFMpeg(object):
 
         while True:
             if timeout:
-                signal.alarm(timeout)
+                signal.setitimer(signal.ITIMER_VIRTUAL, timeout)
 
             ret = p.stderr.read(10)
 
             if timeout:
-                signal.alarm(0)
+                signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+
             if not ret:
                 break
 
@@ -509,7 +518,10 @@ class FFMpeg(object):
                 yield timecode
 
         if timeout:
-            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+            try:
+                signal.signal(signal.SIGVTALRM, signal.SIG_DFL)
+            except ValueError:
+                pass
 
         p.communicate()  # wait for process to exit
         if preprocess:
