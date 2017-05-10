@@ -740,6 +740,9 @@ class Ffv1Codec(VideoCodec):
                           # This makes it possible for a decoder to detect
                           # errors in the bitstream, rather than blindly
                           # decoding a broken slice.
+        'threads': int,  # The number of threads to use while processing.
+                         # Adjust this to match how many of your available
+                         # CPU cores you want to use.
     })
 
     def _codec_specific_produce_ffmpeg_list(self, safe):
@@ -756,6 +759,8 @@ class Ffv1Codec(VideoCodec):
             optlist.extend(['-slices', str(safe['slices'])])
         if 'slicecrc' in safe:
             optlist.extend(['-slicecrc', str(safe['slicecrc'])])
+        if 'threads' in safe and safe['threads'] > 0:
+            optlist.extend(['-threads', str(safe['threads'])])
 
         return optlist
 
