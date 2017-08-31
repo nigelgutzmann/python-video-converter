@@ -205,14 +205,6 @@ class VideoCodec(BaseCodec):
         'colorspace': str,
     }
 
-    def _autorotate(self, src_rotate):
-        filters = {
-            90: "transpose=1",
-            180: "transpose=2,transpose=2",
-            270: "transpose=2"
-        }
-        return filters.get(src_rotate)
-
     def _extend_vf(self, optlist, value):
 
         if not value:
@@ -444,10 +436,6 @@ class VideoCodec(BaseCodec):
 
         if filters:
             optlist = self._extend_vf(filters)
-
-        if safe.get('autorotate', False) and 'src_rotate' in safe:
-            rotate_filter = self._autorotate(safe['src_rotate'])
-            optlist = self._extend_vf(optlist, rotate_filter)
 
         if 'filters' in safe:
             optlist = self._extend_vf(optlist, safe['filters'])
