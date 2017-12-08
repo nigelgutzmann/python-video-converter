@@ -47,7 +47,7 @@ class AudioCodec(BaseCodec):
       * samplerate (integer) - sample rate (frequency)
 
     Supported audio codecs are: null (no audio), copy (copy from
-    original), vorbis, aac, mp3, mp2
+    original), vorbis, aac, mp3, mp2, wav
     """
 
     encoder_options = {
@@ -587,6 +587,14 @@ class Mp2Codec(AudioCodec):
     ffmpeg_codec_name = 'mp2'
 
 
+class WavCodec(AudioCodec):
+    """
+    WAV audio codec.
+    """
+    codec_name = 'wav'
+    ffmpeg_codec_name = 'pcm_s16le'
+
+
 # Video Codecs
 class TheoraCodec(VideoCodec):
     """
@@ -836,7 +844,7 @@ class DVDSub(SubtitleCodec):
 
 
 audio_codec_list = [
-    AudioNullCodec, AudioCopyCodec, VorbisCodec, AacCodec, Mp3Codec, Mp2Codec,
+    AudioNullCodec, AudioCopyCodec, VorbisCodec, AacCodec, Mp3Codec, Mp2Codec, WavCodec,
     FdkAacCodec, Ac3Codec, DtsCodec, FlacCodec
 ]
 

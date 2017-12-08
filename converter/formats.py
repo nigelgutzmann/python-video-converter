@@ -114,6 +114,14 @@ class Mp3Format(BaseFormat):
     ffmpeg_format_name = 'mp3'
 
 
+class WavFormat(BaseFormat):
+    """
+    WAV container, audio files
+    """
+    format_name = 'wav'
+    ffmpeg_format_name = 'wav'
+
+
 class HLSFormat(BaseFormat):
     """
     ts container, segments
@@ -141,7 +149,8 @@ class HLSFormat(BaseFormat):
 
         return optlist
 
+
 format_list = [
     RawvideoFormat, OggFormat, AviFormat, MkvFormat, WebmFormat, FlvFormat,
-    MovFormat, Mp4Format, MpegFormat, Mp3Format, HLSFormat
+    MovFormat, Mp4Format, MpegFormat, Mp3Format, WavFormat, HLSFormat
 ]
