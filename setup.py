@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup, Command
+from setuptools import setup, Command
 import os
 
 
@@ -36,7 +36,7 @@ class DocCommand(Command):
 
 setup(
     name='VideoConverter',
-    version='1.1.5',
+    version='1.1.6',
     description='Video Converter library',
     url='https://github.com/senko/python-video-converter/',
 
